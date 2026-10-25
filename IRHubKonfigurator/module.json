@@ -1,0 +1,14 @@
+{
+  "id": "{6B890800-378B-49BF-A6A5-A19409FAA269}",
+  "name": "IRHubKonfigurator",
+  "type": 4,
+  "vendor": "Broadlink",
+  "aliases": [
+    "IRHub Konfigurator"
+  ],
+  "url": "https://github.com/DG65/IRHub",
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "IRCFG"
+}

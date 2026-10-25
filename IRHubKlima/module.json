@@ -1,0 +1,18 @@
+{
+  "id": "{2D742F1B-3384-4102-8B20-AB94D999EDC9}",
+  "name": "IRHubKlima",
+  "type": 3,
+  "vendor": "",
+  "aliases": [
+    "IRHub Klimaanlage"
+  ],
+  "url": "https://github.com/DG65/IRHub",
+  "parentRequirements": [
+    "{5644728F-9ACE-4368-9FD4-F784B2158D55}"
+  ],
+  "childRequirements": [],
+  "implemented": [
+    "{A0CFB438-C1FD-4E81-BD71-FDABED342F6D}"
+  ],
+  "prefix": "IRKLIMA"
+}

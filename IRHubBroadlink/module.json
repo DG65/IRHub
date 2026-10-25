@@ -1,0 +1,18 @@
+{
+  "id": "{F15D8081-2D52-4E9C-818F-B81AFB93CF23}",
+  "name": "IRHubBroadlink",
+  "type": 2,
+  "vendor": "Broadlink",
+  "aliases": [
+    "IRHub Broadlink-Gerät"
+  ],
+  "url": "https://github.com/DG65/IRHub",
+  "parentRequirements": [],
+  "childRequirements": [
+    "{A0CFB438-C1FD-4E81-BD71-FDABED342F6D}"
+  ],
+  "implemented": [
+    "{5644728F-9ACE-4368-9FD4-F784B2158D55}"
+  ],
+  "prefix": "IRBL"
+}
