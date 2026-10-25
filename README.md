@@ -1,7 +1,7 @@
 # IRHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul-0.4.0-informational)
+![Modul Version](https://img.shields.io/badge/Modul-0.5.0-informational)
 ![Symcon Version](https://img.shields.io/badge/Symcon-9.0%2B-informational)
 ![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-orange)
 [![Check Style](https://github.com/DG65/IRHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/IRHub/actions/workflows/check-style.yml)
@@ -29,7 +29,7 @@ und unbegrenzt viele Befehle.
 | **IRHub Konfigurator** | sucht Broadlink-Geräte im Netz und legt sie an |
 | **IRHub Broadlink-Gerät** | ein Broadlink im Netz: Anmeldung, Senden, Lernen, Temperatur/Feuchte (RM pro, RM4 mit Kabelsensor) |
 | **IRHub Fernbedienung** | benannte Befehle lernen, importieren, senden; Szenen; **Kachel mit Tastenfeld** |
-| **IRHub Klimaanlage** | Klimagerät mit Betriebsart, Temperatur, Lüfter — Codes gelernt oder aus fertiger Codetabelle |
+| **IRHub Klimaanlage** | Klimagerät mit Betriebsart, Temperatur, Lüfter — Codes gelernt oder aus fertiger Codetabelle; **Kachel im Thermostat-Stil** |
 
 Fernbedienungen und Klimaanlagen hängen unter einem Broadlink-Gerät; beliebig viele je Gerät.
 
@@ -82,6 +82,12 @@ Klima-Fernbedienungen senden mit jedem Tastendruck den **kompletten Zustand**
 nach dem Einfügen eines vorhandenen Codes, z. B. aus ioBroker oder Home Assistant — erkennt IRHub
 das Protokoll (etwa TCL112, Daikin, Panasonic) und schlägt die Codetabellen vor, deren feste
 Bytes zum Code passen. Ein Klick lädt den Vorschlag, „Übernehmen" macht ihn gültig.
+
+**Kachel:** Die Klimaanlage ist selbst eine Kachel im Thermostat-Stil: Solltemperatur mit −/+,
+Ein/Aus, Betriebsart als Symboltasten, Lüfterstufen und die Raumtemperatur zum Vergleich —
+automatisch vom Temperatursensor des Broadlink, sonst aus einer wählbaren Variable. −/+ werden
+gesammelt und einmal gesendet; fehlt für eine Auswahl der Code, meldet die Kachel das und springt
+auf den letzten gesendeten Zustand zurück. „Erneut senden" schickt den Zustand noch einmal.
 
 Die Anlage meldet per Infrarot nichts zurück; IRHub zeigt den zuletzt gesendeten Zustand.
 

@@ -17,6 +17,10 @@ require_once __DIR__ . '/../libs/IRHubLernen.php';
 // SmartIR-Codetabelle (332 Modelle, bei Bedarf von GitHub geladen oder als
 // Datei hochgeladen). Das Modul merkt sich den gesendeten Zustand; die Anlage
 // selbst meldet per Infrarot nichts zurück.
+//
+// Die Instanz ist selbst eine Kachel im Thermostat-Stil (module.html). Als
+// Vergleich zeigt sie die Raumtemperatur: automatisch vom Temperatursensor des
+// Broadlink-Geräts, sonst aus einer frei wählbaren Variable.
 // ===========================================================================
 
 class IRHubKlima extends IPSModule
@@ -36,6 +40,10 @@ class IRHubKlima extends IPSModule
         $this->RegisterPropertyFloat('MinTemp', 18.0);
         $this->RegisterPropertyFloat('MaxTemp', 28.0);
         $this->RegisterPropertyFloat('Schritt', 1.0);
+        $this->RegisterPropertyInteger('RaumTemperaturID', 0);
+        $this->RegisterPropertyInteger('Farbschema', 0);   // 0 automatisch, 1 hell, 2 dunkel
+        $this->RegisterAttributeInteger('RaumBeobachtet', 0);
+        $this->SetVisualizationType(1);
 
         $this->RegisterAttributeString('CodesGelernt', '{}');
         $this->RegisterAttributeString('TabelleSmartIR', '');
@@ -60,6 +68,126 @@ class IRHubKlima extends IPSModule
         if ($this->ReadAttributeString('Ziel') === '' || !$this->zielGueltig($tab)) {
             $this->WriteAttributeString('Ziel', $this->naechsteFehlende($tab));
         }
+        // Die Temperaturvariable des Broadlink gibt es beim Symcon-Start evtl. noch nicht (Stolperstein 17).
+        if (IPS_GetKernelRunlevel() !== KR_READY) {
+            $this->RegisterMessage(0, IPS_KERNELSTARTED);
+        } else {
+            $this->raumBeobachten();
+        }
+        $this->kachelAktualisieren('');
+    }
+
+    public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
+    {
+        if ($Message === IPS_KERNELSTARTED) {
+            $this->raumBeobachten();
+            $this->kachelAktualisieren('');
+            return;
+        }
+        if ($Message === VM_UPDATE && $SenderID === $this->ReadAttributeInteger('RaumBeobachtet')) {
+            $this->kachelAktualisieren('');
+        }
+    }
+
+    // ------------------------------------------------------------------ Raumtemperatur
+
+    /**
+     * Woher kommt die Raumtemperatur? Eigene Variable gewinnt, sonst der Sensor des
+     * Broadlink-Geräts. Rückgabe: [Variablen-ID oder 0, Quelle 'eigen'|'broadlink'|'']
+     */
+    private function raumQuelle(): array
+    {
+        $eigen = $this->ReadPropertyInteger('RaumTemperaturID');
+        if ($eigen > 0 && IPS_VariableExists($eigen)) {
+            return [$eigen, 'eigen'];
+        }
+        $eltern = (int)(IPS_GetInstance($this->InstanceID)['ConnectionID'] ?? 0);
+        if ($eltern > 0) {
+            $id = @IPS_GetObjectIDByIdent('Temperatur', $eltern);
+            if (is_int($id) && $id > 0) {
+                return [$id, 'broadlink'];
+            }
+        }
+        return [0, ''];
+    }
+
+    private function raumTemperatur(): ?float
+    {
+        [$id] = $this->raumQuelle();
+        if ($id === 0) {
+            return null;
+        }
+        $wert = GetValue($id);
+        return is_numeric($wert) ? (float)$wert : null;
+    }
+
+    private function raumBeobachten(): void
+    {
+        [$id] = $this->raumQuelle();
+        $alt = $this->ReadAttributeInteger('RaumBeobachtet');
+        if ($alt === $id) {
+            return;
+        }
+        if ($alt > 0) {
+            $this->UnregisterMessage($alt, VM_UPDATE);
+        }
+        if ($id > 0) {
+            $this->RegisterMessage($id, VM_UPDATE);
+        }
+        $this->WriteAttributeInteger('RaumBeobachtet', $id);
+    }
+
+    /** Statuszeile fürs Formular (SUITE.md: automatische Verbindung sichtbar machen). */
+    private function raumZeile(): array
+    {
+        [$id, $quelle] = $this->raumQuelle();
+        $t = $this->raumTemperatur();
+        $wert = $t === null ? 'noch kein Wert' : $this->zahl($t) . ' °C';
+        if ($quelle === 'broadlink') {
+            return ['🔗 Raumtemperatur: ' . $wert . ' — automatisch vom Temperatursensor des Broadlink-Geräts „' . IPS_GetName((int)IPS_GetParent($id)) . '".', 0x2E8B3D];
+        }
+        if ($quelle === 'eigen') {
+            return ['✏️ Raumtemperatur: ' . $wert . ' — aus der gewählten Variable „' . IPS_GetName($id) . '" (#' . $id . ').', -1];
+        }
+        return ['ℹ️ Der Broadlink hat keinen Temperatursensor. Optional eine Temperaturvariable des Raums wählen — die Kachel zeigt sie dann zum Vergleich mit der Solltemperatur.', -1];
+    }
+
+    // ------------------------------------------------------------------ Kachel
+
+    public function GetVisualizationTile()
+    {
+        return file_get_contents(__DIR__ . '/module.html') . '<script>handleMessage(' . $this->kachelDaten('') . ');</script>';
+    }
+
+    private function kachelDaten(string $rueck): string
+    {
+        $tab = $this->tabelle();
+        $z = $this->zustand();
+        $modi = [];
+        foreach ($tab['betriebsarten'] as $m) {
+            $modi[] = ['key' => $m, 'name' => IRHubKlimaTabelle::BETRIEBSARTEN[$m][1], 'symbol' => IRHubKlimaTabelle::SYMBOLE[$m] ?? '•'];
+        }
+        $luefter = [];
+        foreach ($tab['luefter'] as $l) {
+            $luefter[] = ['key' => $l, 'name' => IRHubKlimaTabelle::luefterName($l)];
+        }
+        [, $quelle] = $this->raumQuelle();
+        $gespeichert = json_decode((string)$this->ReadAttributeString('Zustand'), true);
+        return (string)json_encode([
+            'ein' => $z['ein'], 'modus' => $z['modus'], 'luefter' => $z['luefter'], 'temp' => $z['temp'],
+            'min' => (float)$tab['minTemp'], 'max' => (float)$tab['maxTemp'], 'schritt' => (float)$tab['schritt'],
+            'modi' => $modi, 'luefterListe' => $luefter,
+            'raum' => $this->raumTemperatur(), 'raumQuelle' => $quelle,
+            'gesendet' => (int)($gespeichert['zeit'] ?? 0),
+            'bereit' => count($modi) > 0,
+            'farbschema' => $this->ReadPropertyInteger('Farbschema'),
+            'rueck' => $rueck,
+        ]);
+    }
+
+    private function kachelAktualisieren(string $rueck): void
+    {
+        $this->UpdateVisualizationValue($this->kachelDaten($rueck));
     }
 
     // ------------------------------------------------------------------ Tabelle
@@ -228,6 +356,26 @@ class IRHubKlima extends IPSModule
 
     public function RequestAction($Ident, $Value)
     {
+        // Aus der Kachel: kompletter Zustand als JSON. Nie eine Ausnahme werfen — die Kachel
+        // bekommt immer eine Rückmeldung und den tatsächlich gültigen Zustand zurück.
+        if ($Ident === 'KachelZustand') {
+            $neu = json_decode((string)$Value, true);
+            $z = $this->zustand();
+            if (is_array($neu)) {
+                $z['ein'] = (bool)($neu['ein'] ?? $z['ein']);
+                $z['modus'] = (string)($neu['modus'] ?? $z['modus']);
+                $z['luefter'] = (string)($neu['luefter'] ?? $z['luefter']);
+                $z['temp'] = (float)($neu['temp'] ?? $z['temp']);
+            }
+            [, $meldung] = $this->zustandSenden($z);
+            $this->kachelAktualisieren($meldung);
+            return;
+        }
+        if ($Ident === 'KachelWiederholen') {
+            [, $meldung] = $this->zustandSenden($this->zustand());
+            $this->kachelAktualisieren($meldung === '' ? '' : str_replace(' gesendet.', ' erneut gesendet.', $meldung));
+            return;
+        }
         $z = $this->zustand();
         switch ($Ident) {
             case 'Ein':
@@ -307,8 +455,9 @@ class IRHubKlima extends IPSModule
         if (!$ok) {
             return [false, $meldung];
         }
-        $this->WriteAttributeString('Zustand', (string)json_encode($z));
+        $this->WriteAttributeString('Zustand', (string)json_encode($z + ['zeit' => time()]));
         $this->variablenSetzen($z, $tab);
+        $this->kachelAktualisieren('');
         return [true, '✅ ' . $this->zustandText($z) . ' gesendet.'];
     }
 
@@ -527,6 +676,7 @@ class IRHubKlima extends IPSModule
             'Codetabelle: Steht dein Modell in der Liste, „Codetabelle (SmartIR)" wählen, Modell wählen, „Übernehmen", dann „Codetabelle laden". Die Tabellen stammen aus dem Projekt SmartIR (MIT-Lizenz) und werden bei Bedarf von GitHub geholt.',
             'Selbst lernen: Betriebsarten, Lüfterstufen und Temperaturbereich so knapp wie möglich wählen (jede Kombination ist ein Code). Der Assistent zeigt, welcher Zustand als Nächstes an der Original-Fernbedienung einzustellen ist.',
             'Die Anlage meldet per Infrarot nichts zurück. Wurde sie mit der Original-Fernbedienung verstellt, zeigt Symcon weiter den zuletzt hier gesendeten Zustand.',
+            'Kachel: Die Instanz in der Kachel-Visualisierung platzieren. −/+ ändern die Solltemperatur (kurz warten, dann wird gesendet), die Symbole wählen die Betriebsart. „Erneut senden" schickt den letzten Zustand noch einmal, z. B. nachdem jemand die Original-Fernbedienung benutzt hat.',
             'Skripte: IRKLIMA_Setzen($id, true, "cool", 23, "auto"), IRKLIMA_Ausschalten($id), IRKLIMA_Wiederholen($id) — alle liefern true/false.',
         ];
     }
@@ -545,7 +695,23 @@ class IRHubKlima extends IPSModule
         foreach (IRHubKlimaTabelle::BETRIEBSARTEN as $m => [, $name]) {
             $modusOptionen[] = $m . ' = ' . $name;
         }
+        [$raumText, $raumFarbe] = $this->raumZeile();
+        [, $raumQuelle] = $this->raumQuelle();
+        $raumFeld = ['type' => 'SelectVariable', 'name' => 'RaumTemperaturID', 'caption' => 'Temperaturvariable des Raums (optional)', 'width' => '500px'];
         $fach = [
+            ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📱  Kachel und Raumtemperatur', 'items' => [
+                ['type' => 'Label', 'caption' => 'Diese Instanz ist selbst eine Kachel für die Kachel-Visualisierung: Solltemperatur mit −/+, Ein/Aus, Betriebsart, Lüfter und die Raumtemperatur zum Vergleich.'],
+                ['type' => 'Label', 'caption' => $raumText, 'color' => $raumFarbe],
+                // Kommt der Wert automatisch, wird das Feld nicht gezeigt, sondern nur als bewusstes Überschreiben angeboten.
+                $raumQuelle === 'broadlink'
+                    ? ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => 'Eigene Temperaturvariable stattdessen verwenden', 'items' => [$raumFeld]]
+                    : $raumFeld,
+                ['type' => 'Select', 'name' => 'Farbschema', 'caption' => 'Farben der Kachel', 'options' => [
+                    ['caption' => 'automatisch (wie die Visualisierung)', 'value' => 0],
+                    ['caption' => 'hell', 'value' => 1],
+                    ['caption' => 'dunkel', 'value' => 2],
+                ]],
+            ]],
             ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '❄️  Codequelle', 'items' => [
                 ['type' => 'Select', 'name' => 'Quelle', 'caption' => 'Woher kommen die Codes?', 'options' => [
                     ['caption' => 'Selbst gelernte Codes (geht mit jeder Anlage)', 'value' => 'gelernt'],

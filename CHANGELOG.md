@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0 (25.10.2026)
+
+- Klimaanlage als Kachel im Thermostat-Stil: Solltemperatur mit −/+ (gesammelt, einmal gesendet), Ein/Aus, Betriebsart, Lüfter, Raumtemperatur (automatisch vom Broadlink-Sensor, sonst wählbare Variable), Hinweis und Rücksprung bei fehlendem Code, „Erneut senden".
+- Beide Kacheln: längere Fehlermeldungen werden umbrochen statt abgeschnitten.
+
 ## 0.4.0 (25.10.2026)
 
 - Fernbedienung als Kachel: Tastenfeld mit Ein/Aus, Lautstärke- und Programmwippe, Steuerkreuz, Ziffernblock, Wiedergabe, Quellen und Szenen; automatische Einordnung nach dem Befehlsnamen, Gruppe/Symbol je Taste änderbar, Rückmeldung bei jedem Druck, Farbschema automatisch/hell/dunkel.

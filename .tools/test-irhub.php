@@ -20,6 +20,8 @@ declare(strict_types=1);
 date_default_timezone_set('Europe/Berlin');
 
 const KR_READY = 10103;
+const IPS_KERNELSTARTED = 10001;
+const VM_UPDATE = 10603;
 const KL_MESSAGE = 10201;
 const KL_WARNING = 10204;
 const KL_ERROR = 10206;
@@ -85,11 +87,20 @@ class IPSModule
     protected function SendDebug($a, $b, $c) {}
     protected function LogMessage($text, $art) { $GLOBALS['LOG'][] = [$this->InstanceID, $text, $art]; }
     protected function UpdateFormField($feld, $eig, $wert) { $GLOBALS['FORM'][$this->InstanceID][$feld][$eig] = $wert; }
+    public $nachrichten = [];
+    protected function RegisterMessage($sender, $msg) { $this->nachrichten[$sender . '/' . $msg] = true; }
+    protected function UnregisterMessage($sender, $msg) { unset($this->nachrichten[$sender . '/' . $msg]); }
     protected function MaintainVariable($ident, $name, $typ, $pres, $pos, $keep)
     {
         if (!$keep) {
             unset($this->vars[$ident]);
             return;
+        }
+        $schluessel = $this->InstanceID . '/' . $ident;
+        if (!isset($GLOBALS['VARID'][$schluessel])) {
+            $vid = $GLOBALS['NEXT']++;
+            $GLOBALS['VARID'][$schluessel] = $vid;
+            $GLOBALS['VARS'][$vid] = [$this->InstanceID, $ident];
         }
         $this->vars[$ident] = ['typ' => $typ, 'pres' => $pres, 'value' => $this->vars[$ident]['value'] ?? null, 'action' => $this->vars[$ident]['action'] ?? false, 'name' => $name];
     }
@@ -121,9 +132,26 @@ function IPS_Sleep($ms) {}
 function IPS_SemaphoreEnter($n, $ms) { return true; }
 function IPS_SemaphoreLeave($n) { return true; }
 function IPS_GetLibrary($g) { $l = json_decode(file_get_contents(dirname(__DIR__) . '/library.json'), true); return ['Version' => $l['version'], 'Build' => $l['build']]; }
-function IPS_GetName($id) { return $GLOBALS['INST'][$id]->name ?? ('#' . $id); }
+function IPS_GetName($id) { return isset($GLOBALS['VARS'][$id]) ? $GLOBALS['VARS'][$id][1] : ($GLOBALS['INST'][$id]->name ?? ('#' . $id)); }
 function IPS_SetName($id, $n) { $GLOBALS['INST'][$id]->name = $n; return true; }
-function IPS_GetParent($id) { return 0; }
+function IPS_GetParent($id) { return $GLOBALS['VARS'][$id][0] ?? 0; }
+function IPS_GetObjectIDByIdent($ident, $parent)
+{
+    $vid = $GLOBALS['VARID'][$parent . '/' . $ident] ?? 0;
+    if ($vid === 0 || !isset($GLOBALS['INST'][$parent]->vars[$ident])) {
+        return false; // wie Symcon: Warnung + false
+    }
+    return $vid;
+}
+function IPS_VariableExists($id) { return isset($GLOBALS['VARS'][$id]) || isset($GLOBALS['FREMDVAR'][$id]); }
+function GetValue($id)
+{
+    if (isset($GLOBALS['FREMDVAR'][$id])) {
+        return $GLOBALS['FREMDVAR'][$id];
+    }
+    [$inst, $ident] = $GLOBALS['VARS'][$id];
+    return $GLOBALS['INST'][$inst]->vars[$ident]['value'];
+}
 function IPS_SetParent($id, $p) { return true; }
 function IPS_GetProperty($id, $n) { return $GLOBALS['INST'][$id]->props[$n]; }
 function IPS_SetProperty($id, $n, $v) { $GLOBALS['INST'][$id]->props[$n] = $v; return true; }
@@ -773,6 +801,45 @@ $KL->props['SmartIRNr'] = 2243;
 $KL->ApplyChanges();
 pruef('Nach „Übernehmen" gilt die Tabelle', $KL->status === 102 && $KL->Setzen(true, 'cool', 17, 'low'));
 pruef('GitHub nicht erreichbar → Hinweis auf Datei', strpos($KL->VorschlagLaden(9999), 'hochladen') !== false);
+
+// Klima-Kachel
+abschnitt('Klima-Kachel');
+pruef('Klimaanlage ist eine Kachel', $KL->visuTyp === 1 && strpos((string)$KL->GetVisualizationTile(), '<script>handleMessage({') !== false);
+$kd = json_decode(end($KL->visu), true);
+pruef('Raumtemperatur automatisch vom Broadlink (RM pro: 23,4 °C)', (float)$kd['raum'] === 23.4 && $kd['raumQuelle'] === 'broadlink', json_encode([$kd['raum'], $kd['raumQuelle']]));
+$tvid = IPS_GetObjectIDByIdent('Temperatur', $bl);
+pruef('Temperatur des Broadlink wird beobachtet', isset($KL->nachrichten[$tvid . '/' . VM_UPDATE]));
+$form = json_encode(json_decode($KL->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+pruef('Formular: 🔗-Zeile grün, Feld nur als Überschreiben', strpos($form, '🔗 Raumtemperatur: 23,4 °C') !== false && strpos($form, '"color":3050301') !== false && strpos($form, 'Eigene Temperaturvariable stattdessen verwenden') !== false);
+$B->vars['Temperatur']['value'] = 24.0;
+$n = count($KL->visu);
+$KL->MessageSink(0, $tvid, VM_UPDATE, []);
+pruef('Neue Raumtemperatur erreicht die Kachel', count($KL->visu) === $n + 1 && (float)json_decode(end($KL->visu), true)['raum'] === 24.0);
+$GLOBALS['FREMDVAR'][88888] = 20.5;
+$KL->props['RaumTemperaturID'] = 88888;
+$KL->ApplyChanges();
+$kd = json_decode(end($KL->visu), true);
+pruef('Eigene Variable gewinnt', (float)$kd['raum'] === 20.5 && $kd['raumQuelle'] === 'eigen' && isset($KL->nachrichten['88888/' . VM_UPDATE]) && !isset($KL->nachrichten[$tvid . '/' . VM_UPDATE]));
+pruef('Formular: ✏️-Zeile', strpos(json_encode(json_decode($KL->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE),  '✏️ Raumtemperatur: 20,5 °C') !== false);
+$KL->props['RaumTemperaturID'] = 0;
+unset($B->vars['Temperatur']);
+$KL->ApplyChanges();
+$kd = json_decode(end($KL->visu), true);
+$form = json_encode(json_decode($KL->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+pruef('Ohne Sensor: keine Raumtemperatur, ℹ️ und Feld sichtbar', $kd['raum'] === null && strpos($form, 'ℹ️ Der Broadlink hat keinen Temperatursensor') !== false && strpos($form, '"type":"SelectVariable","name":"RaumTemperaturID"') !== false && strpos($form, 'Eigene Temperaturvariable stattdessen') === false);
+$vorher = count($sim->gesendet);
+$KL->RequestAction('KachelZustand', json_encode(['ein' => true, 'modus' => 'cool', 'luefter' => 'low', 'temp' => 18]));
+$kd = json_decode(end($KL->visu), true);
+pruef('Kachel: Zustand gesendet, Rückmeldung ✅', count($sim->gesendet) === $vorher + 1 && strpos($kd['rueck'], '✅ Kühlen') === 0 && (float)$kd['temp'] === 18.0 && $kd['gesendet'] > 0);
+pruef('Kachel: Variablen folgen', $KL->vars['Solltemperatur']['value'] === 18.0);
+$vorher = count($sim->gesendet);
+$KL->RequestAction('KachelZustand', json_encode(['ein' => true, 'modus' => 'heat', 'luefter' => 'low', 'temp' => 17]));
+$kd = json_decode(end($KL->visu), true);
+pruef('Kachel: fehlender Code → Hinweis, Zustand springt zurück, keine Ausnahme', count($sim->gesendet) === $vorher && strpos($kd['rueck'], '⚠️') === 0 && $kd['modus'] === 'cool' && (float)$kd['temp'] === 18.0);
+$KL->RequestAction('KachelWiederholen', 0);
+pruef('Kachel: erneut senden', count($sim->gesendet) === $vorher + 1 && strpos(json_decode(end($KL->visu), true)['rueck'], 'erneut gesendet') !== false);
+$kd = json_decode(end($KL->visu), true);
+pruef('Kachel: Betriebsarten mit Symbol', $kd['modi'][0]['symbol'] === '❄️' && count($kd['luefterListe']) === 2);
 
 // ================================================================== 6. Formulare und Store-Regeln
 

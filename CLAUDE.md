@@ -38,6 +38,16 @@
 - Vorschau im Browser: `.vorschau/` (git-ignoriert) über `tile-preview` (launch.json im Arbeitsordner).
   Hell/dunkel/breit am 25.10.2026 angesehen; in Dietmars echter Kachel-Visualisierung noch nicht.
 
+## Klima-Kachel (0.5.0)
+
+- `IRHubKlima/module.html`, Daten aus `kachelDaten()`. Die Kachel schickt immer den kompletten Zustand
+  (`requestAction('KachelZustand', JSON)`), −/+ werden 900 ms gesammelt. PHP wirft dabei nie, sondern
+  antwortet mit Rückmeldung + gültigem Zustand (Rücksprung bei fehlendem Code). `KachelWiederholen`.
+- Raumtemperatur: eigene Variable (`RaumTemperaturID`) vor Broadlink-Ident `Temperatur`; Beobachtung per
+  VM_UPDATE, beim Symcon-Start erst nach IPS_KERNELSTARTED (Stolperstein 17). Formularzeile 🔗/✏️/ℹ️.
+- Anlass: Dietmar 25.10.2026 — verlinkte Klima-Instanz zeigte als Kachel „nicht viel". Meine frühere
+  Annahme „Standard-Variablen reichen" war falsch.
+
 ## Offen / am echten Gerät prüfen
 
 - **Live 25.10.2026:** Dietmar hat IRHub in seinem Symcon installiert, alle Instanzen ließen sich fehlerfrei

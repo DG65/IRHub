@@ -25,6 +25,10 @@ trait IRHubFormular
         '0.1.1' => [
             '• Klimaanlage: Betriebsart „Lüften" auch bei Codetabellen, die sie „fan" nennen (z. B. Beko, Dimplex, Galanz).',
         ],
+        '0.5.0' => [
+            '• 📱 Auch die Klimaanlage ist jetzt eine Kachel: Solltemperatur mit −/+, Betriebsart, Lüfter, Ein/Aus und die Raumtemperatur zum Vergleich.',
+            '• 🌡️ Raumtemperatur kommt automatisch vom Temperatursensor des Broadlink — ohne Sensor im Panel „Kachel und Raumtemperatur" eine Variable wählen.',
+        ],
         '0.4.0' => [
             '• 📱 Die Fernbedienung ist jetzt eine Kachel mit Tastenfeld: Ein/Aus, Lautstärke, Programm, Steuerkreuz, Ziffernblock und mehr. Die Tasten ordnen sich nach dem Namen selbst; Gruppe und Symbol lassen sich in der Befehlsliste ändern.',
             '• ✨ Szenen: Folgen wie „Filmabend" werden eine eigene Taste auf der Kachel.',

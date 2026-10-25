@@ -29,6 +29,11 @@ class IRHubKlimaTabelle
         'heat_cool' => [5, 'Heizen/Kühlen'],
     ];
 
+    // Symbole der Betriebsarten auf der Kachel.
+    public const SYMBOLE = [
+        'auto' => '🔄', 'cool' => '❄️', 'heat' => '🔥', 'dry' => '💧', 'fan_only' => '🌀', 'fan' => '🌀', 'heat_cool' => '🌡️',
+    ];
+
     public const LUEFTER_NAMEN = [
         'auto' => 'Automatik', 'low' => 'Niedrig', 'mid' => 'Mittel', 'medium' => 'Mittel', 'middle' => 'Mittel',
         'high' => 'Hoch', 'highest' => 'Höchste', 'lowest' => 'Niedrigste', 'quiet' => 'Leise', 'silent' => 'Leise',

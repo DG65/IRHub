@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--fg:#1d1d1f;--fg2:#6e6e73;--rand:rgba(0,0,0,.12);--fl:rgba(0,0,0,.05);--fl2:rgba(0,0,0,.09);--seite:#ffffff;
+--gruen:#1f7a3a;--gruenbg:#e3f4e8;--blau:#0b5cad;--blaubg:#e3effb;--rot:#a82a2a;--rotbg:#fbe6e6;--orange:#b4500a;--orangebg:#fdeedd;
+--tuerkis:#0a7f8f;--tuerkisbg:#ddf4f6;--grau:#6e6e73;--graubg:#efeff1;
+--s:clamp(13px,calc(7px + 1.6vmin),21px)}
+@media (prefers-color-scheme:dark){:root:not(.hell){--fg:#f2f2f7;--fg2:#a1a1a6;--rand:rgba(255,255,255,.16);--fl:rgba(255,255,255,.07);--fl2:rgba(255,255,255,.13);--seite:#1c1c1e;
+--gruen:#7fd89a;--gruenbg:rgba(52,199,89,.18);--blau:#8cc4ff;--blaubg:rgba(10,132,255,.2);--rot:#ff9b9b;--rotbg:rgba(255,69,58,.2);--orange:#ffb36b;--orangebg:rgba(255,149,0,.2);
+--tuerkis:#7fe0ec;--tuerkisbg:rgba(50,200,220,.18);--grau:#a1a1a6;--graubg:rgba(255,255,255,.08)}}
+:root.dunkel{--fg:#f2f2f7;--fg2:#a1a1a6;--rand:rgba(255,255,255,.16);--fl:rgba(255,255,255,.07);--fl2:rgba(255,255,255,.13);--seite:#1c1c1e;
+--gruen:#7fd89a;--gruenbg:rgba(52,199,89,.18);--blau:#8cc4ff;--blaubg:rgba(10,132,255,.2);--rot:#ff9b9b;--rotbg:rgba(255,69,58,.2);--orange:#ffb36b;--orangebg:rgba(255,149,0,.2);
+--tuerkis:#7fe0ec;--tuerkisbg:rgba(50,200,220,.18);--grau:#a1a1a6;--graubg:rgba(255,255,255,.08)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:var(--s)}
+/* Symcon legt Instanzname + Vergrößern-Symbol als eigene Ebene über die oberen ~44 px der Kachel — freihalten. */
+body{padding:44px 14px 3em;display:flex;flex-direction:column}
+#app{flex:1;display:flex;flex-direction:column;gap:1em}
+.kopf{display:flex;align-items:center;justify-content:space-between;gap:1em}
+.raum{text-align:right;color:var(--fg2);font-size:.85em;line-height:1.3}
+.raum b{display:block;font-size:1.55em;color:var(--fg);font-weight:500}
+button{font:inherit;color:var(--fg);background:var(--fl);border:1px solid var(--rand);border-radius:.85em;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;user-select:none;transition:transform .08s,background .15s}
+button:active{transform:scale(.93)}
+.power{width:3.4em;height:3.4em;border-radius:50%;font-size:1em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1em;
+  background:var(--graubg);color:var(--grau);border-color:transparent}
+.power .sym{font-size:1.3em;line-height:1}.power .txt{font-size:.66em}
+.power.an{background:var(--gruenbg);color:var(--gruen)}
+.soll{display:flex;align-items:center;justify-content:center;gap:1.1em}
+.soll button{width:3.2em;height:3.2em;border-radius:50%;font-size:1.25em;display:flex;align-items:center;justify-content:center}
+.wert{text-align:center;min-width:5.5em}
+.wert b{display:block;font-size:3.1em;font-weight:300;line-height:1;letter-spacing:-.02em}
+.wert span{font-size:.78em;color:var(--fg2)}
+.aus .wert b{color:var(--fg2)}
+.abschnitt{font-size:.72em;color:var(--fg2);text-transform:uppercase;letter-spacing:.06em;margin:0 0 .45em}
+.chips{display:flex;flex-wrap:wrap;gap:.45em}
+.chip{display:flex;align-items:center;gap:.35em;padding:.45em .85em;border-radius:2em;font-size:.88em}
+.chip .sym{font-size:1.1em;line-height:1}
+.chip.an{border-color:transparent;font-weight:600}
+.chip.an.cool{background:var(--blaubg);color:var(--blau)}.chip.an.heat{background:var(--orangebg);color:var(--orange)}
+.chip.an.dry{background:var(--tuerkisbg);color:var(--tuerkis)}.chip.an.auto,.chip.an.heat_cool{background:var(--gruenbg);color:var(--gruen)}
+.chip.an.fan_only,.chip.an.fan,.chip.an.luefter{background:var(--fl2);color:var(--fg)}
+.fuss{display:flex;align-items:center;justify-content:space-between;gap:.6em;font-size:.75em;color:var(--fg2);margin-top:auto}
+.fuss button{font-size:1em;padding:.35em .8em;border-radius:2em;white-space:nowrap;flex:none}
+.leerhinweis{color:var(--fg2);font-size:.95em;line-height:1.4;padding:1em .2em}
+/* Rückmeldung schwebt unten in der Kachel. */
+.meldung{position:fixed;left:50%;bottom:.7em;transform:translateX(-50%);max-width:calc(100% - 2em);font-size:.82em;
+  padding:.45em 1em;border-radius:2em;background:var(--seite);color:var(--fg);border:1px solid var(--rand);
+  box-shadow:0 2px 10px rgba(0,0,0,.15);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;transition:opacity .2s}
+.meldung:empty{opacity:0}
+.meldung.fehler{color:var(--rot);border-color:var(--rot);white-space:normal;border-radius:1em;text-align:center;width:max-content}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="meldung" class="meldung"></div>
+<script>
+// daten = zuletzt von Symcon bestätigter Zustand; plan = was auf der Kachel gerade eingestellt ist.
+var daten = null, plan = null, uhr = null, meldUhr = null;
+var WARTEN_MS = 900;   // −/+ sammeln, dann einmal senden (jeder Klima-Code enthält den kompletten Zustand)
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+function zahl(v) { var s = (Math.round(v * 10) / 10).toFixed(daten && daten.schritt % 1 ? 1 : 0); return s.replace('.', ','); }
+function zahl1(v) { return (Math.round(v * 10) / 10).toFixed(1).replace('.', ','); }   // Messwerte immer mit einer Nachkommastelle
+
+function meldung(text, fehler) {
+  var m = document.getElementById('meldung');
+  m.textContent = text; m.className = 'meldung' + (fehler ? ' fehler' : '');
+  clearTimeout(meldUhr);
+  meldUhr = setTimeout(function () { m.textContent = ''; }, fehler ? 15000 : 4000);
+}
+
+function senden(sofort) {
+  clearTimeout(uhr);
+  var los = function () {
+    uhr = null;
+    meldung('📤 wird gesendet …', false);
+    if (typeof requestAction === 'function') {
+      requestAction('KachelZustand', JSON.stringify(plan));
+    } else {
+      meldung('⛔ Keine Verbindung zur Visualisierung', true);
+    }
+  };
+  if (sofort) { los(); } else { uhr = setTimeout(los, WARTEN_MS); }
+}
+
+function aendern(was, wert) {
+  if (!plan) { return; }
+  if (was === 'temp') {
+    var t = Math.round((plan.temp + wert) / daten.schritt) * daten.schritt;
+    plan.temp = Math.max(daten.min, Math.min(daten.max, t));
+    zeichnen(); senden(false); return;
+  }
+  if (was === 'ein') { plan.ein = !plan.ein; }
+  if (was === 'modus') { plan.modus = wert; plan.ein = true; }
+  if (was === 'luefter') { plan.luefter = wert; }
+  zeichnen(); senden(true);
+}
+
+function zeichnen() {
+  var d = daten, p = plan, app = document.getElementById('app');
+  if (!d) { return; }
+  if (!d.bereit) {
+    app.innerHTML = '<div class="leerhinweis">Noch keine Codes. In der Instanz eine Codetabelle laden oder Codes lernen.</div>';
+    return;
+  }
+  var raum = d.raum == null ? '' : '<div class="raum">Raum<b>' + zahl1(d.raum) + ' °C</b></div>';
+  var h = '<div class="kopf"><button class="power' + (p.ein ? ' an' : '') + '" data-was="ein"><span class="sym">⏻</span><span class="txt">' + (p.ein ? 'Ein' : 'Aus') + '</span></button>' + raum + '</div>';
+  h += '<div class="soll' + (p.ein ? '' : ' aus') + '">'
+    + '<button data-was="temp" data-wert="-1" aria-label="kälter">−</button>'
+    + '<div class="wert"><b>' + zahl(p.temp) + '°</b><span>' + (p.ein ? 'Solltemperatur' : 'aus · Soll ' + zahl(p.temp) + ' °C') + '</span></div>'
+    + '<button data-was="temp" data-wert="1" aria-label="wärmer">+</button></div>';
+  h += '<div><div class="abschnitt">Betriebsart</div><div class="chips">' + d.modi.map(function (m) {
+    return '<button class="chip ' + esc(m.key) + (p.ein && p.modus === m.key ? ' an' : '') + '" data-was="modus" data-wert="' + esc(m.key) + '"><span class="sym">' + m.symbol + '</span>' + esc(m.name) + '</button>';
+  }).join('') + '</div></div>';
+  if (d.luefterListe.length > 1) {
+    h += '<div><div class="abschnitt">Lüfter</div><div class="chips">' + d.luefterListe.map(function (l) {
+      return '<button class="chip luefter' + (p.luefter === l.key ? ' an' : '') + '" data-was="luefter" data-wert="' + esc(l.key) + '">' + esc(l.name) + '</button>';
+    }).join('') + '</div></div>';
+  }
+  var stand = d.gesendet ? 'zuletzt gesendet ' + new Date(d.gesendet * 1000).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) : 'noch nichts gesendet';
+  h += '<div class="fuss"><span>' + stand + '</span><button data-was="wiederholen" title="Die Anlage meldet per Infrarot nichts zurück. Sendet den zuletzt gewählten Zustand noch einmal, z. B. nachdem jemand die Original-Fernbedienung benutzt hat.">↻ Erneut senden</button></div>';
+  app.innerHTML = h;
+}
+
+document.addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('button[data-was]') : null;
+  if (!b) { return; }
+  var was = b.getAttribute('data-was'), wert = b.getAttribute('data-wert');
+  if (was === 'wiederholen') {
+    meldung('📤 wird erneut gesendet …', false);
+    if (typeof requestAction === 'function') { requestAction('KachelWiederholen', 0); }
+    return;
+  }
+  aendern(was, was === 'temp' ? Number(wert) * daten.schritt : wert);
+});
+
+// Symcon nennt der Kachel das Farbschema der Visualisierung nicht. Automatisch: Hintergrund
+// des umgebenden Rahmens messen, sonst prefers-color-scheme; fest „hell"/„dunkel" aus dem Formular.
+function farbschemaSetzen(wahl) {
+  var s = wahl === 1 ? 'hell' : (wahl === 2 ? 'dunkel' : hintergrundSchema());
+  document.documentElement.classList.toggle('hell', s === 'hell');
+  document.documentElement.classList.toggle('dunkel', s === 'dunkel');
+}
+function hintergrundSchema() {
+  try {
+    var el = window.frameElement;
+    while (el) {
+      var m = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
+      if (m && (m.length < 4 || Number(m[3]) > 0.5)) {
+        return (0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2]) / 255 < 0.5 ? 'dunkel' : 'hell';
+      }
+      el = el.parentElement;
+    }
+  } catch (e) { /* fremder Rahmen: nicht lesbar */ }
+  return '';
+}
+
+// Jede Nachricht von Symcon enthält den gültigen Zustand: Die Kachel übernimmt ihn
+// (nach einem Fehler springt sie damit auf den letzten gesendeten Stand zurück).
+function handleMessage(raw) {
+  var neu = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  daten = neu;
+  if (!uhr || neu.rueck) {
+    plan = {ein: neu.ein, modus: neu.modus, luefter: neu.luefter, temp: neu.temp};
+  }
+  if (neu.rueck) {
+    clearTimeout(uhr); uhr = null;
+    meldung(neu.rueck, neu.rueck.indexOf('⛔') === 0 || neu.rueck.indexOf('⚠') === 0);
+  }
+  farbschemaSetzen(daten.farbschema || 0);
+  zeichnen();
+}
+</script>
+</body>
+</html>
