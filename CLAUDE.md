@@ -38,7 +38,12 @@
   **TCL112-Protokoll** (Kopf ~3,1/1,6 ms, 14 Bytes LSB zuerst, `23 CB 26 01 00 …`, Byte 13 = Summe 0–12).
   EIN: `… 24 03 0A 7D … C3` (Ein, Kühlen, 31−10 = 21 °C), AUS: `… 20 01 05 43 … 7E`. Gleiche Belegung in
   SmartIR 1441 Akai, 1602 Beko, 1720 Erisson, 1860 Simbio, 2060 Dimplex, 2243 DeLonghi, 2520 Galanz → zuerst
-  2243 oder 1602 probieren, sonst Lern-Assistent. Bit-Deutung von Byte 5–8 nur aus Vergleich, nicht belegt. Ausbaustufe 3
+  2243 oder 1602 probieren, sonst Lern-Assistent. Bit-Deutung von Byte 5–8 nur aus Vergleich, nicht belegt.
+- **Protokollerkennung (0.2.0):** `IRHubCode::analysieren()` (erster Rahmen, Schwelle = Mitte zwischen
+  kürzestem/längstem Space, LSB zuerst), Fingerabdrücke je Tabelle in `libs/IRHubSmartIR.json` (`fp`:
+  Kopf, feste Bytes „..“ = veränderlich, Anzahl fester Bytes), Vergleich `IRHubKlimaTabelle::vorschlaege()`
+  (≥ 4 feste Bytes, Kopf ±20 %). 293 von 332 Tabellen haben einen Fingerabdruck. Albins Codes →
+  TCL112, Spitze Akai/Beko/DeLonghi/Galanz. Ausbaustufe 3
   (Codes aus dem Zustand berechnen, Port von home-assistant-libs/infrared-protocols, MIT; Gree,
   Fujitsu, Samsung, LG, Panasonic) und Protokollerkennung aus einem gelernten Code: nicht gebaut.
 - Forum-Thread existiert noch nicht (Rückmeldungs-Panel verweist auf GitHub-Issues).

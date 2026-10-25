@@ -193,6 +193,72 @@ class IRHubCode
         }, $werte);
     }
 
+    /**
+     * Ersten Rahmen eines Puls-Abstands-Signals in Bytes zerlegen (LSB zuerst, wie die
+     * meisten Klima-Protokolle). Rückgabe: ['kopf' => [Mark, Space], 'bits' => n, 'bytes' => [...]]
+     * oder null, wenn das Signal nicht so aufgebaut ist (zu kurz, keine zwei Space-Längen).
+     */
+    public static function analysieren(string $paket): ?array
+    {
+        if (self::istFunk($paket)) {
+            return null;
+        }
+        $p = self::paketZuPulse($paket);
+        if (count($p) < 20) {
+            return null;
+        }
+        // Spaces nach dem Kopf bis zur ersten langen Pause (Rahmenende).
+        $spaces = [];
+        for ($i = 3; $i < count($p); $i += 2) {
+            if ($p[$i] > 4000) {
+                break;
+            }
+            $spaces[] = $p[$i];
+        }
+        if (count($spaces) < 8) {
+            return null;
+        }
+        $min = min($spaces);
+        $max = max($spaces);
+        if ($max < 1.6 * $min) {
+            return null; // keine Puls-Abstands-Kodierung
+        }
+        $schwelle = ($min + $max) / 2;
+        $bytes = [];
+        for ($k = 0; $k + 8 <= count($spaces); $k += 8) {
+            $v = 0;
+            for ($j = 0; $j < 8; $j++) {
+                $v |= ($spaces[$k + $j] > $schwelle ? 1 : 0) << $j;
+            }
+            $bytes[] = $v;
+        }
+        return ['kopf' => [$p[0], $p[1]], 'bits' => count($spaces), 'bytes' => $bytes];
+    }
+
+    /** Bekannte Klima-Protokolle am Anfang des Rahmens erkennen (nur zur Anzeige). */
+    public static function protokollName(array $analyse): string
+    {
+        $b = $analyse['bytes'];
+        $n = count($b);
+        $hex = strtoupper(implode('', array_map(static function ($x) {
+            return sprintf('%02X', $x);
+        }, array_slice($b, 0, 5))));
+        $summeOk = $n > 1 && (array_sum(array_slice($b, 0, $n - 1)) & 0xFF) === $b[$n - 1];
+        if ($hex === '23CB260100' && $n === 14) {
+            return 'TCL112 (TCL und viele Baugleiche)' . ($summeOk ? ', Prüfsumme stimmt' : '');
+        }
+        if ($hex === '23CB260100' && $n === 18) {
+            return 'Mitsubishi Electric' . ($summeOk ? ', Prüfsumme stimmt' : '');
+        }
+        if (strpos($hex, '11DA27') === 0) {
+            return 'Daikin';
+        }
+        if (strpos($hex, '0220E004') === 0) {
+            return 'Panasonic';
+        }
+        return sprintf('unbekanntes Klima-Protokoll (%d Bytes, Kopf %d/%d µs)', $n, $analyse['kopf'][0], $analyse['kopf'][1]);
+    }
+
     /** Kurzbeschreibung für Formular und Liste. */
     public static function beschreibung(string $paket): string
     {

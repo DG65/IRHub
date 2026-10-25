@@ -41,6 +41,7 @@ class IRHubKlima extends IPSModule
         $this->RegisterAttributeString('TabelleSmartIR', '');
         $this->RegisterAttributeString('Ziel', '');
         $this->RegisterAttributeString('Zustand', '{}');
+        $this->RegisterAttributeString('Analyse', '{}');
         $this->registerFormAttributes();
         $this->registerLernen();
     }
@@ -106,9 +107,13 @@ class IRHubKlima extends IPSModule
         if ($nr <= 0) {
             return 'ℹ️ Bitte zuerst ein Modell auswählen und „Übernehmen" klicken.';
         }
-        $kontext = stream_context_create(['http' => ['timeout' => 15, 'ignore_errors' => true], 'ssl' => ['verify_peer' => true]]);
-        $json = @file_get_contents(sprintf(IRHubKlimaTabelle::SMARTIR_URL, $nr), false, $kontext);
-        if (!is_string($json) || $json === '') {
+        return $this->tabelleVonGitHub($nr);
+    }
+
+    private function tabelleVonGitHub(int $nr): string
+    {
+        $json = IRHubKlimaTabelle::herunterladen($nr);
+        if ($json === null) {
             $this->LogMessage('SmartIR-Tabelle ' . $nr . ' nicht ladbar (GitHub nicht erreichbar?)', KL_WARNING);
             return '⛔ Tabelle ' . $nr . ' ließ sich nicht von GitHub laden. Internetzugang prüfen — oder die JSON-Datei unten von Hand hochladen.';
         }
@@ -142,6 +147,79 @@ class IRHubKlima extends IPSModule
         } else {
             $this->variablenPflegen($tab);
             $this->SetStatus(102);
+        }
+        return $text;
+    }
+
+    // ------------------------------------------------------------------ Protokoll erkennen
+
+    /** Vorhandenen Code (z. B. aus ioBroker oder Home Assistant) prüfen und passende Tabellen vorschlagen. */
+    public function CodeAnalysieren(string $Code): string
+    {
+        $e = IRHubCode::einlesen($Code);
+        if (!isset($e['paket'])) {
+            return '⛔ ' . $e['fehler'];
+        }
+        return $this->analyseZeigen(IRHubCode::base64($e['paket']));
+    }
+
+    protected function nachDemLernen(string $code): void
+    {
+        $this->analyseZeigen($code);
+    }
+
+    private function analyseZeigen(string $code): string
+    {
+        $paket = IRHubCode::ausBase64($code);
+        $a = IRHubCode::analysieren($paket);
+        if ($a === null || count($a['bytes']) < 4) {
+            $ergebnis = ['text' => 'ℹ️ Dieser Code ist kein byteweise lesbares Klima-Signal (' . IRHubCode::beschreibung($paket) . ') — keine Tabelle vorschlagbar, bitte selbst lernen.', 'vorschlaege' => []];
+        } else {
+            $verzeichnis = json_decode((string)@file_get_contents(__DIR__ . '/../libs/IRHubSmartIR.json'), true);
+            $v = array_slice(IRHubKlimaTabelle::vorschlaege($a, is_array($verzeichnis) ? $verzeichnis : []), 0, 12);
+            $protokoll = IRHubCode::protokollName($a);
+            $text = count($v) === 0
+                ? '🔍 Protokoll: ' . $protokoll . '. Keine SmartIR-Tabelle passt — selbst lernen ist hier der Weg.'
+                : '🔍 Protokoll: ' . $protokoll . '. ' . count($v) . ' Codetabelle' . (count($v) === 1 ? '' : 'n') . ' passen zum Aufbau — die oberste zuerst probieren: '
+                    . implode(', ', array_map(static function ($t) {
+                        return $t['hersteller'] . ' (' . $t['nr'] . ')';
+                    }, array_slice($v, 0, 4))) . (count($v) > 4 ? ' …' : '') . '. Ob Lüfter und Lamellen genau passen, zeigt erst der Test.';
+            $ergebnis = ['text' => $text, 'vorschlaege' => $v];
+        }
+        $this->WriteAttributeString('Analyse', (string)json_encode($ergebnis));
+        $this->UpdateFormField('AnalyseZeile', 'caption', $ergebnis['text']);
+        $this->UpdateFormField('VorschlagNr', 'options', (string)json_encode($this->vorschlagOptionen($ergebnis['vorschlaege'])));
+        $this->UpdateFormField('VorschlagNr', 'value', $ergebnis['vorschlaege'][0]['nr'] ?? 0);
+        $this->UpdateFormField('VorschlagZeile', 'visible', count($ergebnis['vorschlaege']) > 0);
+        return $ergebnis['text'];
+    }
+
+    private function vorschlagOptionen(array $vorschlaege): array
+    {
+        $o = [];
+        foreach ($vorschlaege as $t) {
+            $o[] = ['caption' => mb_substr($t['hersteller'] . ' – ' . $t['modelle'], 0, 70) . ' (' . $t['nr'] . ')', 'value' => (int)$t['nr']];
+        }
+        return count($o) > 0 ? $o : [['caption' => '—', 'value' => 0]];
+    }
+
+    /**
+     * Vorgeschlagene Tabelle laden und im offenen Formular als Quelle eintragen.
+     * Gespeichert wird die Auswahl erst mit „Übernehmen" (keine Selbstpersistenz).
+     */
+    public function VorschlagLaden(int $Nr): string
+    {
+        if ($Nr <= 0) {
+            return 'ℹ️ Bitte zuerst einen Vorschlag auswählen.';
+        }
+        $text = $this->tabelleVonGitHub($Nr);
+        if (strpos($text, '✅') !== 0) {
+            return $text;
+        }
+        if ($this->ReadPropertyString('Quelle') !== 'smartir' || $this->ReadPropertyInteger('SmartIRNr') !== $Nr) {
+            $this->UpdateFormField('Quelle', 'value', 'smartir');
+            $this->UpdateFormField('SmartIRNr', 'value', $Nr);
+            return '✅ Tabelle ' . $Nr . ' geladen. Oben sind „Codetabelle (SmartIR)" und das Modell schon eingetragen — jetzt nur noch „Übernehmen" klicken, dann gilt sie.';
         }
         return $text;
     }
@@ -520,6 +598,18 @@ class IRHubKlima extends IPSModule
                 ]
             )];
         }
+        $analyse = json_decode((string)$this->ReadAttributeString('Analyse'), true);
+        $vorschlaege = (array)($analyse['vorschlaege'] ?? []);
+        $aktionen[] = ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => '🔍  Passende Codetabelle finden', 'items' => [
+            ['type' => 'Label', 'caption' => 'Ein einziger Code deiner Anlage genügt: nach dem Lernen prüft IRHub automatisch, welches Protokoll sie spricht und welche Codetabellen dazu passen. Ein vorhandener Code (z. B. aus ioBroker oder Home Assistant) lässt sich auch einfügen.'],
+            ['type' => 'ValidationTextBox', 'name' => 'AnalyseCode', 'caption' => 'Vorhandener Code (Hex, Base64, Pronto)', 'width' => '700px'],
+            ['type' => 'Button', 'caption' => '🔍 Code analysieren', 'onClick' => 'echo IRKLIMA_CodeAnalysieren($id, $AnalyseCode);'],
+            ['type' => 'Label', 'name' => 'AnalyseZeile', 'caption' => (string)($analyse['text'] ?? 'ℹ️ Noch kein Code analysiert.')],
+            ['type' => 'RowLayout', 'name' => 'VorschlagZeile', 'visible' => count($vorschlaege) > 0, 'items' => [
+                ['type' => 'Select', 'name' => 'VorschlagNr', 'caption' => 'Vorschlag', 'options' => $this->vorschlagOptionen($vorschlaege), 'value' => $vorschlaege[0]['nr'] ?? 0, 'width' => '500px'],
+                ['type' => 'Button', 'caption' => '⬇️ Diese Tabelle laden', 'onClick' => 'echo IRKLIMA_VorschlagLaden($id, $VorschlagNr);'],
+            ]],
+        ]];
         $status = [
             ['code' => 102, 'icon' => 'active', 'caption' => 'Bereit'],
             ['code' => 201, 'icon' => 'inactive', 'caption' => 'Codetabelle noch nicht geladen'],

@@ -177,6 +177,7 @@ trait IRHubLernen
             $this->WriteAttributeString('Gelernt', $code);
             $this->lernAnzeige('✅ Code empfangen: ' . IRHubCode::beschreibung(IRHubCode::ausBase64($code)) . '. Jetzt „Testen", dann speichern.');
             $this->gelerntAnzeigen();
+            $this->nachDemLernen($code);
             return;
         }
         // Gerät verlässt den Lernmodus nach 25–40 s still: rechtzeitig neu scharf schalten.
@@ -188,6 +189,11 @@ trait IRHubLernen
             }
         }
         $this->lernAnzeige('⏳ Warte auf Signal … noch ' . max(0, self::$IRHUB_LERN_ZEIT - ($jetzt - $z['start'])) . ' s. ' . ($z['hinweis'] ?? ''));
+    }
+
+    /** Wird nach jedem erfolgreich gelernten Code aufgerufen; Module können das überschreiben. */
+    protected function nachDemLernen(string $code): void
+    {
     }
 
     private function lernFehler(array $r): void

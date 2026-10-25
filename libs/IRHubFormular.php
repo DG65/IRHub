@@ -25,6 +25,9 @@ trait IRHubFormular
         '0.1.1' => [
             '• Klimaanlage: Betriebsart „Lüften" auch bei Codetabellen, die sie „fan" nennen (z. B. Beko, Dimplex, Galanz).',
         ],
+        '0.2.0' => [
+            '• Klimaanlage: 🔍 „Passende Codetabelle finden" — ein gelernter oder eingefügter Code (z. B. aus ioBroker) genügt, IRHub erkennt das Protokoll und schlägt passende Codetabellen vor.',
+        ],
     ];
 
     private static $IRHUB_REPO_URL     = 'https://github.com/DG65/IRHub';

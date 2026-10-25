@@ -39,6 +39,20 @@ class IRHubKlimaTabelle
     public const SMARTIR_STAND = 'e4df2957ad915536f41ffb39daa96886d7cfe040';
     public const SMARTIR_URL = 'https://raw.githubusercontent.com/smartHomeHub/SmartIR/' . self::SMARTIR_STAND . '/codes/climate/%d.json';
 
+    /** Ersatz für den Prüfstand: callable(int $nr): ?string */
+    public static $ladeErsatz = null;
+
+    /** SmartIR-Tabelle Nr. … von GitHub holen; null, wenn nicht erreichbar. */
+    public static function herunterladen(int $nr): ?string
+    {
+        if (self::$ladeErsatz !== null) {
+            return (self::$ladeErsatz)($nr);
+        }
+        $kontext = stream_context_create(['http' => ['timeout' => 15, 'ignore_errors' => true], 'ssl' => ['verify_peer' => true]]);
+        $json = @file_get_contents(sprintf(self::SMARTIR_URL, $nr), false, $kontext);
+        return is_string($json) && $json !== '' ? $json : null;
+    }
+
     /**
      * SmartIR-JSON prüfen und alle Codes ins Broadlink-Base64 bringen.
      * Rückgabe: ['tabelle' => …] oder ['fehler' => Text].
@@ -174,6 +188,41 @@ class IRHubKlimaTabelle
             }
         }
         return count($ebene) > 0;
+    }
+
+    /**
+     * Passende SmartIR-Tabellen zu einem Klima-Code (Fingerabdrücke aus libs/IRHubSmartIR.json):
+     * gleiche Byteanzahl, Kopf ±20 %, und jedes Byte, das in der Tabelle immer gleich ist,
+     * stimmt auch im Code überein. Mindestens 4 feste Bytes, sonst ist der Vergleich zu schwach.
+     * Rückgabe: Liste [nr, hersteller, modelle, fest], die genauesten zuerst.
+     */
+    public static function vorschlaege(array $analyse, array $verzeichnis): array
+    {
+        $bytes = $analyse['bytes'];
+        $treffer = [];
+        foreach ($verzeichnis as $e) {
+            $fp = $e['fp'] ?? null;
+            if (!is_array($fp) || (int)$fp['f'] < 4 || strlen((string)$fp['b']) !== 2 * count($bytes)) {
+                continue;
+            }
+            if (abs($analyse['kopf'][0] - $fp['k'][0]) > 0.2 * $fp['k'][0] || abs($analyse['kopf'][1] - $fp['k'][1]) > 0.2 * $fp['k'][1]) {
+                continue;
+            }
+            $passt = true;
+            foreach (str_split((string)$fp['b'], 2) as $i => $hex) {
+                if ($hex !== '..' && hexdec($hex) !== $bytes[$i]) {
+                    $passt = false;
+                    break;
+                }
+            }
+            if ($passt) {
+                $treffer[] = ['nr' => (int)$e['nr'], 'hersteller' => (string)$e['hersteller'], 'modelle' => (string)$e['modelle'], 'fest' => (int)$fp['f']];
+            }
+        }
+        usort($treffer, static function ($a, $b) {
+            return [$b['fest'], $a['hersteller'], $a['nr']] <=> [$a['fest'], $b['hersteller'], $b['nr']];
+        });
+        return $treffer;
     }
 
     public static function luefterName(string $l): string

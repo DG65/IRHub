@@ -1,7 +1,7 @@
 # IRHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul-0.1.1-informational)
+![Modul Version](https://img.shields.io/badge/Modul-0.2.0-informational)
 ![Symcon Version](https://img.shields.io/badge/Symcon-9.0%2B-informational)
 ![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-orange)
 [![Check Style](https://github.com/DG65/IRHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/IRHub/actions/workflows/check-style.yml)
@@ -69,6 +69,11 @@ Klima-Fernbedienungen senden mit jedem Tastendruck den **kompletten Zustand**
 - **Selbst lernen:** Betriebsarten, Lüfterstufen und Temperaturbereich festlegen. Der Assistent
   sagt, welchen Zustand du an der Original-Fernbedienung einstellen sollst, und springt nach
   jedem gespeicherten Code zur nächsten Lücke. Funktioniert mit jeder Anlage.
+
+**Passende Tabelle finden:** Ein einziger Code der Anlage genügt. Nach dem Lernen — oder
+nach dem Einfügen eines vorhandenen Codes, z. B. aus ioBroker oder Home Assistant — erkennt IRHub
+das Protokoll (etwa TCL112, Daikin, Panasonic) und schlägt die Codetabellen vor, deren feste
+Bytes zum Code passen. Ein Klick lädt den Vorschlag, „Übernehmen" macht ihn gültig.
 
 Die Anlage meldet per Infrarot nichts zurück; IRHub zeigt den zuletzt gesendeten Zustand.
 

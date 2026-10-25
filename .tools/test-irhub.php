@@ -681,6 +681,42 @@ pruef('Tabelle mit „fan" übernommen', strpos($KL->TabelleHochladen(base64_enc
 $KL->RequestAction('Betriebsart', 4);
 pruef('Betriebsart Lüften sendet den fan-Code', $KL->vars['Betriebsart']['value'] === 4 && strpos(end($sim->gesendet), $ir) === 0);
 
+// Protokollerkennung mit Albins echten ioBroker-Codes (Home Deluxe 15322, RM pro+)
+$albinEin = '2600e6006733132112221209130813081322120913071322122212091222120912091222132213071322122212091209122212091209122212091209120912091308130813081309120813091209120912091209120912081309122212091209122212091209122212221209120913081308130813081309122212091222120912091208130912221209122212221222132212221209120714091209120912091209120912091209120813091209120912091209120912091209130813081308130912091209120912091209120813091208130912091222122212081309120913081322122212000d050000';
+$albinAus = '2600e600673410241024100b100b100b1024100b100b11231124100b1024100b100b10241024100b10241123110b100b102412091209102412091209120912091209120912091209120912091209120912091308130813081309120912091207142212091209122212081309120912091209120813081323120813221207140912091209120912221222120912091209120912221209130813081309120912091209120912091209120912091209120912091209120912091209120912091209120913081309120912091209120912091209120912091209122212221222122312221222120910000d050000';
+$an = IRHubCode::analysieren(IRHubCode::einlesen($albinEin)['paket']);
+pruef('Albin EIN: 14 Bytes TCL112', $an !== null && strtoupper(bin2hex(pack('C*', ...$an['bytes']))) === '23CB26010024030A7D00000000C3');
+pruef('Albin AUS: Prüfsumme', strtoupper(bin2hex(pack('C*', ...IRHubCode::analysieren(IRHubCode::einlesen($albinAus)['paket'])['bytes']))) === '23CB2601002001054300000000' . '7E');
+pruef('Protokollname TCL112', strpos(IRHubCode::protokollName($an), 'TCL112') === 0);
+$text = $KL->CodeAnalysieren($albinEin);
+$nrn = array_column(json_decode($KL->ReadAttributeStringOeffentlich('Analyse'), true)['vorschlaege'], 'nr');
+pruef('Vorschläge enthalten DeLonghi 2243 und Beko 1602', in_array(2243, $nrn, true) && in_array(1602, $nrn, true), $text);
+pruef('Keine 18-Byte-Mitsubishi-Tabelle (1120) vorgeschlagen', !in_array(1120, $nrn, true));
+pruef('Formular-Auswahl aufgefrischt', strpos($GLOBALS['FORM'][$kl]['VorschlagNr']['options'] ?? '', '2243') !== false && ($GLOBALS['FORM'][$kl]['VorschlagZeile']['visible'] ?? false) === true);
+pruef('Kein Klima-Code → ehrliche Absage', strpos($KL->CodeAnalysieren($pronto), 'kein byteweise') !== false);
+pruef('Unsinn → Fehler', strpos($KL->CodeAnalysieren('xyz'), '⛔') === 0);
+// Nach dem Lernen automatisch analysiert
+$KL->props['Quelle'] = 'gelernt';
+$KL->ApplyChanges();
+$KL->WriteAttributeStringOeffentlich('Analyse', '{}');
+$sim->wartendCode = IRHubCode::einlesen($albinAus)['paket'];
+$sim->wartendNach = 1;
+$KL->LernenStarten('ir');
+$KL->LernSchritt();
+pruef('Nach dem Lernen: Vorschläge automatisch', strpos(json_decode($KL->ReadAttributeStringOeffentlich('Analyse'), true)['text'] ?? '', 'TCL112') !== false);
+// Vorschlag laden: trägt Quelle und Modell nur ins offene Formular ein (keine Selbstpersistenz)
+IRHubKlimaTabelle::$ladeErsatz = static function ($nr) use ($smartir) {
+    return $nr === 2243 ? (string)$smartir : null;
+};
+$text = $KL->VorschlagLaden(2243);
+pruef('Vorschlag geladen, Formular vorbelegt', strpos($text, 'Übernehmen') !== false && ($GLOBALS['FORM'][$kl]['Quelle']['value'] ?? '') === 'smartir' && ($GLOBALS['FORM'][$kl]['SmartIRNr']['value'] ?? 0) === 2243, $text);
+pruef('Property dabei nicht verändert', $KL->props['Quelle'] === 'gelernt');
+$KL->props['Quelle'] = 'smartir';
+$KL->props['SmartIRNr'] = 2243;
+$KL->ApplyChanges();
+pruef('Nach „Übernehmen" gilt die Tabelle', $KL->status === 102 && $KL->Setzen(true, 'cool', 17, 'low'));
+pruef('GitHub nicht erreichbar → Hinweis auf Datei', strpos($KL->VorschlagLaden(9999), 'hochladen') !== false);
+
 // ================================================================== 6. Formulare und Store-Regeln
 
 abschnitt('Formulare und Store-Regeln');
