@@ -326,7 +326,11 @@ class IRHubFernbedienung extends IPSModule
         ];
         $aktionen = [
             ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📥  Befehl lernen oder einfügen', 'items' => array_merge(
-                [['type' => 'ValidationTextBox', 'name' => 'NeuerName', 'caption' => 'Name (z. B. Ein, Lauter, HDMI 1)']],
+                [
+                    ['type' => 'Label', 'caption' => 'So geht\'s:  1. Namen eintragen  →  2. „Infrarot lernen" klicken  →  3. solange der Balken läuft (30 s), die Taste der Original-Fernbedienung aus 10–30 cm einmal kurz drücken  →  4. „Testen"  →  5. reagiert das Gerät: „Speichern", sonst „Verwerfen" und neu lernen.'],
+                    ['type' => 'Label', 'caption' => 'Funk (nur Pro-Modelle):  „Frequenz suchen" klicken  →  Taste gedrückt halten, bis „Frequenz gefunden" erscheint  →  loslassen  →  einmal kurz drücken. Klappt die Suche nicht, die feste Frequenz wählen.', 'visible' => !empty($info['funk'])],
+                    ['type' => 'ValidationTextBox', 'name' => 'NeuerName', 'caption' => 'Name (z. B. Ein, Lauter, HDMI 1)'],
+                ],
                 $this->lernElemente(!empty($info['funk']), 'echo IRHUB_GelerntSpeichern($id, $NeuerName);'),
                 [
                     ['type' => 'ValidationTextBox', 'name' => 'ImportCode', 'caption' => 'oder fertigen Code einfügen (Base64, Hex, Pronto, µs-Folge)', 'width' => '600px'],

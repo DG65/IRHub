@@ -80,7 +80,7 @@ trait IRHubLernen
 
     /**
      * Lernen starten. $Art: 'ir', 'funk' (Frequenz suchen), 'funk433', 'funk315'.
-     * Rückgabe: Anleitung fürs Popup.
+     * Rückgabe: Anleitung (für Skripte); im Formular zeigen Statuszeile und Countdown-Balken den Ablauf.
      */
     public function LernenStarten(string $Art): string
     {
@@ -116,6 +116,8 @@ trait IRHubLernen
         $this->WriteAttributeString('Lernen', (string)json_encode($zustand));
         $this->SetTimerInterval('Lernen', 1000);
         $this->lernAnzeige('⏳ ' . $hinweis);
+        $gesamt = $zustand['phase'] === 'sweep' ? self::$IRHUB_SWEEP_ZEIT : self::$IRHUB_LERN_ZEIT;
+        $this->countdown($gesamt, $gesamt, $zustand['phase'] === 'sweep' ? 'Taste gedrückt halten' : 'Taste jetzt drücken');
         return $hinweis;
     }
 
@@ -141,6 +143,7 @@ trait IRHubLernen
                 $this->lernAnzeige('⚠️ Keine Funkfrequenz gefunden. Taste länger gedrückt halten — oder „Funk 433,92 MHz" direkt wählen, wenn die Frequenz bekannt ist.');
                 return;
             }
+            $this->countdown(self::$IRHUB_SWEEP_ZEIT - ($jetzt - $z['start']), self::$IRHUB_SWEEP_ZEIT, 'Taste gedrückt halten, Frequenz wird gesucht');
             $r = $this->geraet('frequenzPruefen');
             if (empty($r['ok'])) {
                 $this->lernFehler($r);
@@ -157,6 +160,7 @@ trait IRHubLernen
                 }
                 $z = ['art' => 'funk', 'phase' => 'abholen', 'mhz' => $mhz, 'start' => $jetzt, 'scharf' => $jetzt, 'hinweis' => 'Taste kurz drücken (' . number_format($mhz, 2, ',', '') . ' MHz).'];
                 $this->WriteAttributeString('Lernen', (string)json_encode($z));
+                $this->countdown(self::$IRHUB_LERN_ZEIT, self::$IRHUB_LERN_ZEIT, 'loslassen, dann einmal kurz drücken');
             }
             return;
         }
@@ -188,7 +192,9 @@ trait IRHubLernen
                 $this->WriteAttributeString('Lernen', (string)json_encode($z));
             }
         }
-        $this->lernAnzeige('⏳ Warte auf Signal … noch ' . max(0, self::$IRHUB_LERN_ZEIT - ($jetzt - $z['start'])) . ' s. ' . ($z['hinweis'] ?? ''));
+        $rest = max(0, self::$IRHUB_LERN_ZEIT - ($jetzt - $z['start']));
+        $this->lernAnzeige('⏳ Warte auf Signal … noch ' . $rest . ' s. ' . ($z['hinweis'] ?? ''));
+        $this->countdown($rest, self::$IRHUB_LERN_ZEIT, 'Taste jetzt drücken');
     }
 
     /** Wird nach jedem erfolgreich gelernten Code aufgerufen; Module können das überschreiben. */
@@ -209,6 +215,7 @@ trait IRHubLernen
         $war = $this->ReadAttributeString('Lernen') !== '{}';
         $this->SetTimerInterval('Lernen', 0);
         $this->WriteAttributeString('Lernen', '{}');
+        $this->UpdateFormField('LernFortschritt', 'visible', false);
         if ($geraetAbbrechen && $war) {
             $this->geraet('abbrechen');
         }
@@ -233,6 +240,16 @@ trait IRHubLernen
         return 'ℹ️ Gelernten Code verworfen.';
     }
 
+    /** Countdown-Balken: läuft von $gesamt auf 0 Sekunden. */
+    protected function countdown(int $rest, int $gesamt, string $text): void
+    {
+        $rest = max(0, $rest);
+        $this->UpdateFormField('LernFortschritt', 'maximum', $gesamt);
+        $this->UpdateFormField('LernFortschritt', 'current', $rest);
+        $this->UpdateFormField('LernFortschritt', 'caption', 'noch ' . $rest . ' s – ' . $text);
+        $this->UpdateFormField('LernFortschritt', 'visible', true);
+    }
+
     protected function lernAnzeige(string $text): void
     {
         $this->SendDebug('Lernen', $text, 0);
@@ -244,15 +261,19 @@ trait IRHubLernen
     {
         $gelernt = $this->ReadAttributeString('Gelernt');
         $laeuft = $this->ReadAttributeString('Lernen') !== '{}';
-        $knoepfe = [['type' => 'Button', 'caption' => '📥 Infrarot lernen', 'onClick' => 'echo ' . $this->irhubPrefix() . '_LernenStarten($id, "ir");']];
+        // Kein echo-Popup beim Start: es würde den laufenden Countdown verdecken. Rückmeldung
+        // geben Statuszeile und Balken darunter (SUITE.md Rückmeldung, Muster 2).
+        $p = $this->irhubPrefix();
+        $knoepfe = [['type' => 'Button', 'caption' => '📥 Infrarot lernen', 'onClick' => $p . '_LernenStarten($id, "ir");']];
         if ($funk) {
-            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 Funk lernen (Frequenz suchen)', 'onClick' => 'echo ' . $this->irhubPrefix() . '_LernenStarten($id, "funk");'];
-            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 Funk 433,92 MHz', 'onClick' => 'echo ' . $this->irhubPrefix() . '_LernenStarten($id, "funk433");'];
-            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 Funk 315 MHz', 'onClick' => 'echo ' . $this->irhubPrefix() . '_LernenStarten($id, "funk315");'];
+            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 Funk lernen (Frequenz suchen)', 'onClick' => $p . '_LernenStarten($id, "funk");'];
+            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 Funk 433,92 MHz', 'onClick' => $p . '_LernenStarten($id, "funk433");'];
+            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 Funk 315 MHz', 'onClick' => $p . '_LernenStarten($id, "funk315");'];
         }
-        $knoepfe[] = ['type' => 'Button', 'caption' => '✖ Abbrechen', 'onClick' => 'echo ' . $this->irhubPrefix() . '_LernenAbbrechen($id);'];
+        $knoepfe[] = ['type' => 'Button', 'caption' => '✖ Abbrechen', 'onClick' => $p . '_LernenAbbrechen($id);'];
         return [
             ['type' => 'RowLayout', 'items' => $knoepfe],
+            ['type' => 'ProgressBar', 'name' => 'LernFortschritt', 'minimum' => 0, 'maximum' => self::$IRHUB_LERN_ZEIT, 'current' => self::$IRHUB_LERN_ZEIT, 'caption' => '', 'visible' => false, 'width' => '600px'],
             ['type' => 'Label', 'name' => 'LernStatus', 'caption' => $laeuft ? '⏳ Lernen läuft …' : ($gelernt !== '' ? '✅ Gelernter Code liegt bereit: ' . IRHubCode::beschreibung(IRHubCode::ausBase64($gelernt)) : 'ℹ️ Bereit. Erst unten auswählen, wofür gelernt wird, dann den Lernknopf drücken.')],
             ['type' => 'RowLayout', 'name' => 'GelerntZeile', 'visible' => $gelernt !== '', 'items' => array_values(array_filter([
                 ['type' => 'Button', 'caption' => '▶️ Testen', 'onClick' => 'echo ' . $this->irhubPrefix() . '_GelerntTesten($id);'],

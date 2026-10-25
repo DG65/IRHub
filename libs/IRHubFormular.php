@@ -25,6 +25,10 @@ trait IRHubFormular
         '0.1.1' => [
             '• Klimaanlage: Betriebsart „Lüften" auch bei Codetabellen, die sie „fan" nennen (z. B. Beko, Dimplex, Galanz).',
         ],
+        '0.3.0' => [
+            '• Lernen: ein Balken zählt die 30 Sekunden herunter, in denen die Taste gedrückt werden muss. Das Hinweis-Fenster beim Start entfällt dafür.',
+            '• Die Schrittfolge beim Lernen steht jetzt kurz erklärt direkt über den Lernknöpfen.',
+        ],
         '0.2.0' => [
             '• Klimaanlage: 🔍 „Passende Codetabelle finden" — ein gelernter oder eingefügter Code (z. B. aus ioBroker) genügt, IRHub erkennt das Protokoll und schlägt passende Codetabellen vor.',
         ],

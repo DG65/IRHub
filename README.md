@@ -1,7 +1,7 @@
 # IRHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul-0.2.1-informational)
+![Modul Version](https://img.shields.io/badge/Modul-0.3.0-informational)
 ![Symcon Version](https://img.shields.io/badge/Symcon-9.0%2B-informational)
 ![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-orange)
 [![Check Style](https://github.com/DG65/IRHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/IRHub/actions/workflows/check-style.yml)
@@ -46,7 +46,7 @@ Fernbedienungen und Klimaanlagen hängen unter einem Broadlink-Gerät; beliebig 
 ## Fernbedienung
 
 - **Lernen:** Namen eintragen, „📥 Infrarot lernen", Taste der Original-Fernbedienung aus
-  10–30 cm auf den Broadlink richten. Danach „▶️ Testen" — reagiert das Gerät, „💾 Speichern".
+  10–30 cm auf den Broadlink richten, solange der Countdown-Balken läuft (30 s). Danach „▶️ Testen" — reagiert das Gerät, „💾 Speichern".
 - **Funk (433/315 MHz, nur Pro-Modelle):** „Frequenz suchen" — Taste gedrückt halten, bis die
   Frequenz gefunden ist, dann loslassen und einmal kurz drücken. Klappt die Suche nicht, die
   feste Frequenz 433,92 bzw. 315 MHz wählen.

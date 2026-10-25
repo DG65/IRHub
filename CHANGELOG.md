@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0 (25.10.2026)
+
+- Lernen: Countdown-Balken von 30 auf 0 s unter den Lernknöpfen; das Hinweis-Popup beim Start entfällt, weil es den Countdown verdeckt hätte.
+- Fernbedienung und Klimaanlage erklären die Schrittfolge beim Lernen direkt im Formular (Anregung aus dem ersten Praxistest).
+
 ## 0.2.1 (25.10.2026)
 
 - Rückmeldungs-Hinweis im Formular verlinkt jetzt den IRHub-Thread im Symcon-Forum.

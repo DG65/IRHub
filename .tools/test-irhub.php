@@ -554,11 +554,17 @@ $sim->wartendCode = $irEcht . "\0\0\0\0";   // altes Format liefert Auffüllbyte
 $sim->wartendNach = 2;
 $hinweis = $F->LernenStarten('ir');
 pruef('Lernen IR gestartet', strpos($hinweis, '👉') === 0 && $F->timers['Lernen'][0] === 1000);
+pruef('Countdown startet bei 30 s', ($GLOBALS['FORM'][$fb]['LernFortschritt']['visible'] ?? false) === true && ($GLOBALS['FORM'][$fb]['LernFortschritt']['current'] ?? -1) === 30 && ($GLOBALS['FORM'][$fb]['LernFortschritt']['maximum'] ?? -1) === 30);
+$z = json_decode($F->ReadAttributeStringOeffentlich('Lernen'), true);
+$z['start'] -= 10;
+$F->WriteAttributeStringOeffentlich('Lernen', json_encode($z));
 $F->LernSchritt();
+pruef('Countdown läuft herunter (≈ 20 s)', in_array($GLOBALS['FORM'][$fb]['LernFortschritt']['current'] ?? -1, [19, 20], true) && strpos($GLOBALS['FORM'][$fb]['LernFortschritt']['caption'] ?? '', 'noch ') === 0, json_encode($GLOBALS['FORM'][$fb]['LernFortschritt'] ?? null));
 pruef('Erster Schritt: noch nichts', $F->ReadAttributeStringOeffentlich('Gelernt') === '');
 $F->LernSchritt();
 pruef('Code gelernt und zugeschnitten', $F->ReadAttributeStringOeffentlich('Gelernt') === base64_encode($irEcht) && $F->timers['Lernen'][0] === 0);
 pruef('Lernmodus am Gerät beendet (0x1E)', end($sim->befehle) === 0x1E);
+pruef('Countdown nach Erfolg ausgeblendet', ($GLOBALS['FORM'][$fb]['LernFortschritt']['visible'] ?? true) === false);
 pruef('Gelernt testen sendet', strpos($F->GelerntTesten(), '✅') === 0 && end($sim->gesendet) === $irEcht);
 pruef('Speichern ohne Namen abgelehnt', strpos($F->GelerntSpeichern(''), '⛔') === 0);
 pruef('Speichern', strpos($F->GelerntSpeichern('Ein'), '✅') === 0);
@@ -578,6 +584,7 @@ $sim->wartendCode = "\xb2\x00" . pack('v', 3) . "\x10\x20\x30";
 $sim->wartendNach = 1;
 $sim->sweepFundNach = 2;
 pruef('Funk-Lernen gestartet', strpos($F->LernenStarten('funk'), 'GEDRÜCKT HALTEN') !== false);
+pruef('Countdown bei Frequenzsuche', strpos($GLOBALS['FORM'][$fb]['LernFortschritt']['caption'] ?? '', 'gedrückt halten') !== false);
 $F->LernSchritt();                       // Frequenz noch nicht gefunden
 $F->LernSchritt();                       // gefunden → funkSuchen
 pruef('Frequenz gefunden, Phase abholen', in_array(0x1B, $sim->befehle, true));
@@ -758,6 +765,20 @@ foreach ([$cfg, $bl, $fb, $kl] as $id) {
         pruef("$klasse: Eingabefeld $n ist Property", array_key_exists($n, $m->props));
     }
 }
+// Lernen: kein echo-Popup beim Start (verdeckt den Countdown), Balken und Anleitung vorhanden
+foreach ([$fb, $kl] as $id) {
+    $m = $GLOBALS['INST'][$id];
+    if ($id === $kl) {
+        $m->props['Quelle'] = 'gelernt';
+        $m->ApplyChanges();
+    }
+    $json = $m->GetConfigurationForm();
+    $klasse = get_class($m);
+    pruef("$klasse: Lernstart ohne Popup", strpos($json, 'echo ' . ($id === $fb ? 'IRHUB' : 'IRKLIMA') . '_LernenStarten') === false && strpos($json, '_LernenStarten') !== false);
+    pruef("$klasse: Countdown-Balken im Formular", strpos($json, '"type":"ProgressBar","name":"LernFortschritt"') !== false);
+    pruef("$klasse: Schrittfolge erklärt", strpos($json, 'So geht') !== false);
+}
+
 // Presentation-Schlüssel und Aufzählung nur mit Aktion (Stolperstein 9, Nachtrag 25.10.2026)
 foreach ([$bl, $fb, $kl] as $id) {
     foreach ($GLOBALS['INST'][$id]->vars as $ident => $v) {

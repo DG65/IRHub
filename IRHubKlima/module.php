@@ -579,7 +579,10 @@ class IRHubKlima extends IPSModule
             ]];
         } else {
             $aktionen[] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎓  Codes lernen', 'items' => array_merge(
-                [['type' => 'Label', 'name' => 'ZielZeile', 'caption' => $this->zielText()]],
+                [
+                    ['type' => 'Label', 'caption' => 'So geht\'s:  1. Die Zeile „Als Nächstes" nennt den Zustand  →  2. genau diesen an der Original-Fernbedienung einstellen  →  3. „Infrarot lernen" klicken  →  4. solange der Balken läuft (30 s), eine Taste drücken, die diesen Zustand sendet  →  5. „Testen"  →  6. „Speichern" — danach geht es automatisch mit dem nächsten Zustand weiter.'],
+                    ['type' => 'Label', 'name' => 'ZielZeile', 'caption' => $this->zielText()],
+                ],
                 $this->lernElemente(false, 'echo IRKLIMA_GelerntSpeichern($id);'),
                 [
                     ['type' => 'List', 'name' => 'KombiListe', 'rowCount' => 8, 'add' => false, 'delete' => false,
