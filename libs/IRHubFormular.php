@@ -22,6 +22,9 @@ trait IRHubFormular
             '• Fernbedienung: Infrarot- und Funkcodes lernen (Funk mit Frequenzsuche oder fester Frequenz), erst testen, dann speichern; Codes importieren (Base64, Hex, Pronto, Pulsfolge).',
             '• Klimaanlage: Ein/Aus, Betriebsart, Solltemperatur und Lüfter als Variablen — Codes je Kombination lernen oder fertige SmartIR-Codetabelle laden.',
         ],
+        '0.1.1' => [
+            '• Klimaanlage: Betriebsart „Lüften" auch bei Codetabellen, die sie „fan" nennen (z. B. Beko, Dimplex, Galanz).',
+        ],
     ];
 
     private static $IRHUB_REPO_URL     = 'https://github.com/DG65/IRHub';

@@ -673,6 +673,13 @@ pruef('SmartIR: Kühlen/Niedrig/17 per Skript', $KL->Setzen(true, 'heat', 17, 'l
 pruef('SmartIR: Kühlen/Niedrig/17', $KL->Setzen(true, 'cool', 17, 'low'));
 $KL->RequestAction('Betriebsart', 1);
 pruef('SmartIR: Kühlen senden', strpos(end($sim->gesendet), $ir) === 0);
+// Schreibweise „fan" (Beko/Dimplex/Galanz) statt „fan_only"
+$fanTab = json_decode((string)$smartir, true);
+$fanTab['operationModes'] = ['cool', 'fan'];
+$fanTab['commands']['fan'] = ['low' => ['16' => $b64, '17' => $b64]];
+pruef('Tabelle mit „fan" übernommen', strpos($KL->TabelleHochladen(base64_encode((string)json_encode($fanTab))), '2 Betriebsarten') !== false);
+$KL->RequestAction('Betriebsart', 4);
+pruef('Betriebsart Lüften sendet den fan-Code', $KL->vars['Betriebsart']['value'] === 4 && strpos(end($sim->gesendet), $ir) === 0);
 
 // ================================================================== 6. Formulare und Store-Regeln
 

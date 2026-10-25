@@ -156,7 +156,7 @@ class IRHubKlima extends IPSModule
                 $z['ein'] = (bool)$Value;
                 break;
             case 'Betriebsart':
-                $modus = $this->modusVonWert((int)$Value);
+                $modus = $this->modusVonWert((int)$Value, $this->tabelle()['betriebsarten']);
                 if ($modus === null) {
                     throw new Exception('Unbekannte Betriebsart ' . $Value);
                 }
@@ -256,10 +256,11 @@ class IRHubKlima extends IPSModule
         return (IRHubKlimaTabelle::BETRIEBSARTEN[$z['modus']][1] ?? $z['modus']) . ', Lüfter ' . IRHubKlimaTabelle::luefterName($z['luefter']) . ', ' . $this->zahl($z['temp']) . ' °C';
     }
 
-    private function modusVonWert(int $wert): ?string
+    /** Wert der Variable → Betriebsart, wie die aktuelle Tabelle sie schreibt (fan oder fan_only). */
+    private function modusVonWert(int $wert, array $modi): ?string
     {
-        foreach (IRHubKlimaTabelle::BETRIEBSARTEN as $m => [$w]) {
-            if ($w === $wert) {
+        foreach ($modi as $m) {
+            if ((IRHubKlimaTabelle::BETRIEBSARTEN[$m][0] ?? -1) === $wert) {
                 return $m;
             }
         }

@@ -18,12 +18,14 @@ require_once __DIR__ . '/IRHubCode.php';
 class IRHubKlimaTabelle
 {
     // Feste Werte der Variable „Betriebsart" (bleiben über Tabellenwechsel stabil).
+    // Mehrere Schreibweisen derselben Betriebsart teilen sich einen Wert; eine Tabelle nutzt nur eine davon.
     public const BETRIEBSARTEN = [
         'auto'      => [0, 'Automatik'],
         'cool'      => [1, 'Kühlen'],
         'heat'      => [2, 'Heizen'],
         'dry'       => [3, 'Entfeuchten'],
         'fan_only'  => [4, 'Lüften'],
+        'fan'       => [4, 'Lüften'],      // Schreibweise einiger SmartIR-Tabellen (Beko, Dimplex, Galanz)
         'heat_cool' => [5, 'Heizen/Kühlen'],
     ];
 
