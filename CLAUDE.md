@@ -32,8 +32,7 @@
 
 - **Live 25.10.2026:** Dietmar hat IRHub in seinem Symcon installiert, alle Instanzen ließen sich fehlerfrei
   anlegen. Veröffentlichung unter dem Namen „IRHub" beschlossen (Store-Beta), Forumstexte in
-  `../forum-ankuendigung-irhub.md` und `../forum-antwort-broadlink-thread-irhub.md`. Nach Anlage des Threads
-  den Link im Rückmeldungs-Panel (`IRHubFormular::formRueckmeldung`) eintragen.
+  `../forum-ankuendigung-irhub.md` und `../forum-antwort-broadlink-thread-irhub.md`.
 
 - **Noch an keinem echten Broadlink getestet** (Stand 25.10.2026, Dietmar hat keins; Testgerät:
   Albins RM pro+, Typenschild FCC 2ACDZ-RMPRO, Kennung unbekannt). Erste Live-Prüfung: Suche,
@@ -50,8 +49,8 @@
   (≥ 4 feste Bytes, Kopf ±20 %). 293 von 332 Tabellen haben einen Fingerabdruck. Albins Codes →
   TCL112, Spitze Akai/Beko/DeLonghi/Galanz. Ausbaustufe 3
   (Codes aus dem Zustand berechnen, Port von home-assistant-libs/infrared-protocols, MIT; Gree,
-  Fujitsu, Samsung, LG, Panasonic) und Protokollerkennung aus einem gelernten Code: nicht gebaut.
-- Forum-Thread existiert noch nicht (Rückmeldungs-Panel verweist auf GitHub-Issues).
+  Fujitsu, Samsung, LG, Panasonic): nicht gebaut.
+- Forum-Thread seit 25.10.2026: https://community.symcon.de/t/beta-modul-irhub-broadlink-fernbedienungen-und-klimaanlagen-lokal-in-ip-symcon-rm-mini-rm-pro-rm4/144771 (im Rückmeldungs-Panel verlinkt, 0.2.1).
 
 ## Prüfen vor jedem Push
 

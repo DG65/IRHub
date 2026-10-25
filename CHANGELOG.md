@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 (25.10.2026)
+
+- Rückmeldungs-Hinweis im Formular verlinkt jetzt den IRHub-Thread im Symcon-Forum.
+
 ## 0.2.0 (25.10.2026)
 
 - Klimaanlage: Protokollerkennung. Ein gelernter oder eingefügter Code (z. B. aus ioBroker/Home Assistant) wird zerlegt; IRHub nennt das Protokoll und schlägt passende SmartIR-Codetabellen vor, die sich mit einem Klick laden lassen.

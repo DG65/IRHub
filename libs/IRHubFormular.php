@@ -32,6 +32,7 @@ trait IRHubFormular
 
     private static $IRHUB_REPO_URL     = 'https://github.com/DG65/IRHub';
     private static $IRHUB_ISSUES_URL   = 'https://github.com/DG65/IRHub/issues';
+    private static $IRHUB_FORUM_URL    = 'https://community.symcon.de/t/beta-modul-irhub-broadlink-fernbedienungen-und-klimaanlagen-lokal-in-ip-symcon-rm-mini-rm-pro-rm4/144771';
     private static $IRHUB_LICENSE_URL  = 'https://github.com/DG65/IRHub/blob/beta/LICENSE';
     private static $IRHUB_PAYPAL_URL   = 'https://paypal.me/DietmarGureth';
     private static $IRHUB_LIBRARY_GUID = '{B9ED7E8C-7E12-4F56-BAEC-56F5267CDFA4}';
@@ -152,13 +153,14 @@ trait IRHubFormular
         if ($this->ReadAttributeBoolean('ForumHintGone')) {
             return null;
         }
-        // Ein Forum-Thread existiert noch nicht; bis dahin GitHub als Weg für Rückmeldungen.
+        // Forum-Thread seit 0.2.1; GitHub bleibt als zweiter Weg für Fehlerberichte.
         return [
             'type' => 'ExpansionPanel', 'name' => 'ForumHintPanel', 'expanded' => true,
             'caption' => '💬  Rückmeldungen',
             'items' => [
-                ['type' => 'Label', 'caption' => '🧪 IRHub ist neu. Läuft dein Gerät? Fehlt etwas, oder meldet das Modul ein unbekanntes Broadlink-Modell? Schreib es gern — mit Modell und der Gerätekennung aus dem Konfigurator.'],
-                ['type' => 'Button', 'caption' => 'Rückmeldung auf GitHub', 'onClick' => "echo '" . self::$IRHUB_ISSUES_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => '🧪 IRHub ist neu. Läuft dein Gerät? Fehlt etwas, oder meldet das Modul ein unbekanntes Broadlink-Modell? Schreib es gern in den IRHub-Thread im Symcon-Forum — mit Modell und der Gerätekennung aus dem Konfigurator.'],
+                ['type' => 'Button', 'caption' => 'Zum Forum-Thread', 'onClick' => "echo '" . self::$IRHUB_FORUM_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Fehler auf GitHub melden', 'onClick' => "echo '" . self::$IRHUB_ISSUES_URL . "';", 'link' => true],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => $this->irhubPrefix() . '_AckForumHint($id);'],
             ],
         ];

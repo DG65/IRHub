@@ -731,6 +731,7 @@ foreach ([$cfg, $bl, $fb, $kl] as $id) {
     }, $f['elements']);
     pruef("$klasse: Reihenfolge Zweck → Neu → Doku", strpos($titel[0], 'Wozu') !== false && strpos($titel[1], 'Neu bis') !== false && strpos($titel[2], 'Dokumentation') !== false);
     pruef("$klasse: Lizenz-Panel zuletzt", strpos(end($titel), 'Über dieses Modul') !== false);
+    pruef("$klasse: Forum-Thread verlinkt", strpos($json, 'community.symcon.de\/t\/beta-modul-irhub') !== false);
     // Jede eigene Statusnummer hat einen Formulareintrag.
     $codes = array_column($f['status'], 'code');
     pruef("$klasse: Status " . $m->status . ' im Formular', in_array($m->status, $codes, true) || $m->status === 102 && $klasse === 'IRHubKonfigurator');

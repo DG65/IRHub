@@ -1,7 +1,7 @@
 # IRHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul-0.2.0-informational)
+![Modul Version](https://img.shields.io/badge/Modul-0.2.1-informational)
 ![Symcon Version](https://img.shields.io/badge/Symcon-9.0%2B-informational)
 ![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-orange)
 [![Check Style](https://github.com/DG65/IRHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/IRHub/actions/workflows/check-style.yml)
@@ -82,6 +82,10 @@ IRKLIMA_Setzen($id, true, 'cool', 23, 'auto');   // Ein, Kühlen, 23 °C, Lüfte
 IRKLIMA_Ausschalten($id);
 IRKLIMA_Wiederholen($id);                          // letzten Zustand erneut senden
 ```
+
+## Fragen und Rückmeldungen
+
+Im [IRHub-Thread im Symcon-Forum](https://community.symcon.de/t/beta-modul-irhub-broadlink-fernbedienungen-und-klimaanlagen-lokal-in-ip-symcon-rm-mini-rm-pro-rm4/144771) oder als [GitHub-Issue](https://github.com/DG65/IRHub/issues).
 
 ## Grundlagen und Dank
 
