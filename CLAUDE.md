@@ -30,6 +30,11 @@
 
 ## Offen / am echten Gerät prüfen
 
+- **Live 25.10.2026:** Dietmar hat IRHub in seinem Symcon installiert, alle Instanzen ließen sich fehlerfrei
+  anlegen. Veröffentlichung unter dem Namen „IRHub" beschlossen (Store-Beta), Forumstexte in
+  `../forum-ankuendigung-irhub.md` und `../forum-antwort-broadlink-thread-irhub.md`. Nach Anlage des Threads
+  den Link im Rückmeldungs-Panel (`IRHubFormular::formRueckmeldung`) eintragen.
+
 - **Noch an keinem echten Broadlink getestet** (Stand 25.10.2026, Dietmar hat keins; Testgerät:
   Albins RM pro+, Typenschild FCC 2ACDZ-RMPRO, Kennung unbekannt). Erste Live-Prüfung: Suche,
   Anmeldung, IR lernen/senden, Funk lernen.
