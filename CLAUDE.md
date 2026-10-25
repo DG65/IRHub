@@ -34,7 +34,11 @@
   Albins RM pro+, Typenschild FCC 2ACDZ-RMPRO, Kennung unbekannt). Erste Live-Prüfung: Suche,
   Anmeldung, IR lernen/senden, Funk lernen.
 - 315-MHz-Typbyte 0xD7 vs. 0xB4 (Quellen widersprüchlich), RM5 plus Funk/Sensor, Sperrverhalten je Firmware.
-- Albins Klima: Home Deluxe (No-Name), nicht in SmartIR → Lern-Assistent. Ausbaustufe 3
+- **Albins Klima: Home Deluxe Art. 15322** (Split 2,65 kW, R32). Zwei echte ioBroker-Codes dekodiert (25.10.2026):
+  **TCL112-Protokoll** (Kopf ~3,1/1,6 ms, 14 Bytes LSB zuerst, `23 CB 26 01 00 …`, Byte 13 = Summe 0–12).
+  EIN: `… 24 03 0A 7D … C3` (Ein, Kühlen, 31−10 = 21 °C), AUS: `… 20 01 05 43 … 7E`. Gleiche Belegung in
+  SmartIR 1441 Akai, 1602 Beko, 1720 Erisson, 1860 Simbio, 2060 Dimplex, 2243 DeLonghi, 2520 Galanz → zuerst
+  2243 oder 1602 probieren, sonst Lern-Assistent. Bit-Deutung von Byte 5–8 nur aus Vergleich, nicht belegt. Ausbaustufe 3
   (Codes aus dem Zustand berechnen, Port von home-assistant-libs/infrared-protocols, MIT; Gree,
   Fujitsu, Samsung, LG, Panasonic) und Protokollerkennung aus einem gelernten Code: nicht gebaut.
 - Forum-Thread existiert noch nicht (Rückmeldungs-Panel verweist auf GitHub-Issues).
