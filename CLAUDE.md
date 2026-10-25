@@ -28,6 +28,16 @@
   (Byte 0x43 im 0x50-Paket, beginnt mit 4 Nullbytes) geht nur, wenn die Anmeldung klappt.
 - Ping (0x26 = 1) im Abfragetakt — Firmware ≥ v53 startet ohne Cloud sonst neu.
 
+## Kachel (0.4.0)
+
+- `IRHubFernbedienung/module.html`, Daten aus `kachelDaten()` (`IRHubTasten::fuerKachel`), Tastendruck per
+  `requestAction('Taste'|'Folge', Name)` → Rückmeldung per `UpdateVisualizationValue({rueck})`.
+- Gruppe/Symbol je Befehl automatisch aus dem Namen (`IRHubTasten::REGELN`), überschreibbar in der
+  Befehlsliste (onEdit → `TasteAnpassen`), Gruppe `aus` blendet aus. Szenen im Attribut `Szenen`.
+- Rückmeldung als schwebende Einblendung unten (die Kachel ist oft niedriger als das Tastenfeld).
+- Vorschau im Browser: `.vorschau/` (git-ignoriert) über `tile-preview` (launch.json im Arbeitsordner).
+  Hell/dunkel/breit am 25.10.2026 angesehen; in Dietmars echter Kachel-Visualisierung noch nicht.
+
 ## Offen / am echten Gerät prüfen
 
 - **Live 25.10.2026:** Dietmar hat IRHub in seinem Symcon installiert, alle Instanzen ließen sich fehlerfrei

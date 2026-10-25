@@ -108,6 +108,10 @@ class IPSModule
         $this->vars[$ident]['value'] = $wert;
     }
     protected function GetIDForIdent($ident) { return isset($this->vars[$ident]) ? 1 : false; }
+    public $visuTyp = 0;
+    public $visu = [];
+    protected function SetVisualizationType($t) { $this->visuTyp = $t; }
+    protected function UpdateVisualizationValue($v) { $this->visu[] = $v; }
     protected function HasActiveParent() { return $this->parent !== 0 && isset($GLOBALS['INST'][$this->parent]) && $GLOBALS['INST'][$this->parent]->status === 102; }
     protected function SendDataToParent($json) { return $GLOBALS['INST'][$this->parent]->ForwardData($json); }
 }
@@ -155,6 +159,7 @@ function neu(string $klasse, int $parent = 0): int
     return $id;
 }
 
+require_once $ROOT . '/libs/IRHubTasten.php';
 require_once $ROOT . '/IRHubBroadlink/module.php';
 require_once $ROOT . '/IRHubFernbedienung/module.php';
 require_once $ROOT . '/IRHubKlima/module.php';
@@ -612,6 +617,51 @@ $n = count(array_keys($sim->befehle, 0x03, true));
 $F->LernSchritt();
 pruef('Lernmodus nach 15 s neu scharf', count(array_keys($sim->befehle, 0x03, true)) === $n + 1);
 $F->LernenAbbrechen();
+// Kachel
+abschnitt('Kachel');
+pruef('Fernbedienung ist eine Kachel', $F->visuTyp === 1);
+foreach (['Ein', 'Lauter', 'Leiser', '1', '2', '0', 'OK', 'Netflix'] as $n) {
+    $F->Importieren($n, $pronto);
+}
+$tile = (string)$F->GetVisualizationTile();
+pruef('Kachel-HTML mit Startdaten', strpos($tile, 'function handleMessage') !== false && strpos($tile, '<script>handleMessage({') !== false);
+$k = json_decode(end($F->visu), true);
+$gruppen = array_column($k['tasten'], 'gruppe', 'name');
+pruef('Automatische Gruppen', $gruppen['Ein'] === 'ein' && $gruppen['Lauter'] === 'lautstaerke' && $gruppen['1'] === 'ziffern' && $gruppen['OK'] === 'navigation' && $gruppen['Netflix'] === 'weitere', json_encode($gruppen));
+$namen = array_column($k['tasten'], 'name');
+pruef('Ziffern 1, 2, …, 0 in Tastenreihenfolge', array_search('1', $namen, true) < array_search('2', $namen, true) && array_search('2', $namen, true) < array_search('0', $namen, true));
+pruef('Gruppenreihenfolge Ein/Aus zuerst', $k['tasten'][0]['gruppe'] === 'ein');
+$vorher = count($sim->gesendet);
+$F->RequestAction('Taste', 'Lauter');
+pruef('Kachel-Taste sendet und meldet zurück', count($sim->gesendet) === $vorher + 1 && json_decode(end($F->visu), true)['rueck'] === '✅ „Lauter" gesendet');
+$F->RequestAction('Taste', 'Gibtsnicht');
+pruef('Unbekannte Taste: Fehlermeldung auf der Kachel', strpos(json_decode(end($F->visu), true)['rueck'], '⛔') === 0);
+pruef('Taste anpassen', strpos($F->TasteAnpassen('Netflix', 'quellen', '🎬'), '✅') === 0);
+$k = json_decode(end($F->visu), true);
+$nf = array_values(array_filter($k['tasten'], static function ($t) { return $t['name'] === 'Netflix'; }))[0];
+pruef('Eigene Gruppe und Symbol gelten', $nf['gruppe'] === 'quellen' && $nf['symbol'] === '🎬');
+$F->TasteAnpassen('Netflix', 'aus', '');
+pruef('Ausgeblendete Taste fehlt auf der Kachel', !in_array('Netflix', array_column(json_decode(end($F->visu), true)['tasten'], 'name'), true));
+pruef('Ausgeblendet bleibt sendbar', $F->Senden('Netflix'));
+pruef('Unbekannte Gruppe abgelehnt', strpos($F->TasteAnpassen('Ein', 'quatsch', ''), '⛔') === 0);
+pruef('Mehrstellige Zahl als Name abgelehnt', strpos($F->Importieren('12', $pronto), '⛔') === 0);
+$vorher = count($sim->gesendet);
+pruef('Folge: Ziffer 1 ist Taste, 1500 ist Pause', $F->Folge('1, 1500, 2') && count($sim->gesendet) === $vorher + 2);
+pruef('Szene mit unbekanntem Befehl abgelehnt', strpos($F->SzeneSpeichern('Kino', 'Ein, 500, Gibtsnicht'), 'Gibtsnicht') !== false);
+pruef('Szene speichern', strpos($F->SzeneSpeichern('Kino', 'Ein, 500, Lauter, Lauter'), '✅') === 0);
+$k = json_decode(end($F->visu), true);
+pruef('Szene als Taste auf der Kachel', in_array('Kino', array_column($k['tasten'], 'name'), true) && $k['tasten'][1]['gruppe'] === 'szenen');
+$vorher = count($sim->gesendet);
+$F->RequestAction('Folge', 'Kino');
+pruef('Szene aus der Kachel: 3 Befehle + Rückmeldung', count($sim->gesendet) === $vorher + 3 && strpos(json_decode(end($F->visu), true)['rueck'], '✅ Szene') === 0);
+pruef('Szene löschen', strpos($F->SzeneLoeschen('Kino'), '✅') === 0 && !in_array('Kino', array_column(json_decode(end($F->visu), true)['tasten'], 'name'), true));
+// Gruppen-Auswahl im Formular kennt jede Gruppe
+$opt = array_column(IRHubTasten::gruppenOptionen(), 'value');
+pruef('Formular-Auswahl: alle Gruppen + aus', count($opt) === count(IRHubTasten::GRUPPEN) + 2);
+foreach (['Lauter', 'Vol+', 'Leiser', 'Stumm', 'Kanal+', 'CH-', 'Hoch', 'Runter', 'Links', 'Rechts', 'OK', 'Menü', 'Zurück', 'Play', 'HDMI 1', '7'] as $n) {
+    pruef("Automatik erkennt „$n\"", IRHubTasten::automatisch($n)[0] !== 'weitere');
+}
+
 // Gesperrtes Gerät: Status 201 + verständliche Meldung
 $sim->gesperrt = true;
 $B->WriteAttributeStringOeffentlich('Sitzung', '{}');

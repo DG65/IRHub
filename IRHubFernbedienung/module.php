@@ -5,13 +5,16 @@ declare(strict_types=1);
 require_once __DIR__ . '/../libs/IRHubCode.php';
 require_once __DIR__ . '/../libs/IRHubFormular.php';
 require_once __DIR__ . '/../libs/IRHubLernen.php';
+require_once __DIR__ . '/../libs/IRHubTasten.php';
 
 // ===========================================================================
 // IRHub Fernbedienung — benannte Infrarot-/Funkbefehle lernen und senden.
 //
 // Befehle liegen als Liste im Attribut (keine Profil-Assoziationen, keine
-// 32er-Grenze). Die Variable „Befehl" (Aufzählung mit Aktion) sendet aus der
-// Visualisierung; Skripte nutzen IRHUB_Senden/IRHUB_Folge/IRHUB_SendenCode.
+// 32er-Grenze). Die Instanz ist selbst eine Kachel mit Tastenfeld (module.html);
+// Gruppe und Symbol je Taste ergeben sich aus dem Namen oder werden in der
+// Befehlsliste gewählt. Beim Vergrößern zeigt Symcon die Variable „Befehl"
+// (Aufzählung mit Aktion). Skripte nutzen IRHUB_Senden/IRHUB_Folge/IRHUB_Szene.
 // ===========================================================================
 
 class IRHubFernbedienung extends IPSModule
@@ -25,8 +28,11 @@ class IRHubFernbedienung extends IPSModule
     {
         parent::Create();
         $this->RegisterAttributeString('Befehle', '[]');
+        $this->RegisterAttributeString('Szenen', '[]');
+        $this->RegisterPropertyInteger('Farbschema', 0);   // 0 automatisch, 1 hell, 2 dunkel
         $this->registerFormAttributes();
         $this->registerLernen();
+        $this->SetVisualizationType(1);
     }
 
     public function ApplyChanges()
@@ -34,6 +40,34 @@ class IRHubFernbedienung extends IPSModule
         parent::ApplyChanges();
         $this->variablePflegen();
         $this->SetStatus(102);
+        $this->kachelAktualisieren('');
+    }
+
+    // ------------------------------------------------------------------ Kachel
+
+    public function GetVisualizationTile()
+    {
+        return file_get_contents(__DIR__ . '/module.html') . '<script>handleMessage(' . $this->kachelDaten('') . ');</script>';
+    }
+
+    private function kachelDaten(string $rueck): string
+    {
+        return (string)json_encode([
+            'tasten'     => IRHubTasten::fuerKachel($this->befehle(), $this->szenen()),
+            'farbschema' => $this->ReadPropertyInteger('Farbschema'),
+            'rueck'      => $rueck,
+        ]);
+    }
+
+    private function kachelAktualisieren(string $rueck): void
+    {
+        $this->UpdateVisualizationValue($this->kachelDaten($rueck));
+    }
+
+    /** Nur die Rückmeldung an die Kachel (Tasten bleiben, wie sie sind). */
+    private function kachelMeldung(string $rueck): void
+    {
+        $this->UpdateVisualizationValue((string)json_encode(['rueck' => $rueck]));
     }
 
     // ------------------------------------------------------------------ Senden
@@ -66,7 +100,8 @@ class IRHubFernbedienung extends IPSModule
 
     /**
      * Folge senden, z. B. „Ein, 2000, Eingang HDMI, Lauter, Lauter".
-     * Zahlen sind Pausen in ms; zwischen zwei Befehlen liegen sonst 400 ms.
+     * Zahlen sind Pausen in ms — außer es gibt einen Befehl genau dieses Namens
+     * (Zifferntasten 0–9). Zwischen zwei Befehlen liegen sonst 400 ms.
      */
     public function Folge(string $Folge): bool
     {
@@ -74,7 +109,7 @@ class IRHubFernbedienung extends IPSModule
         $alle = true;
         $vorher = false;
         foreach ($teile as $teil) {
-            if (ctype_digit($teil)) {
+            if (ctype_digit($teil) && $this->befehl($teil) === null) {
                 IPS_Sleep(min(60000, (int)$teil));
                 $vorher = false;
                 continue;
@@ -90,6 +125,17 @@ class IRHubFernbedienung extends IPSModule
 
     public function RequestAction($Ident, $Value)
     {
+        // Aus der Kachel: Taste bzw. Szene nach Namen, Ergebnis als Rückmeldung auf der Kachel.
+        if ($Ident === 'Taste') {
+            $ok = $this->Senden((string)$Value);
+            $this->kachelMeldung($ok ? '✅ „' . $Value . '" gesendet' : '⛔ „' . $Value . '" nicht gesendet — siehe Meldungen');
+            return;
+        }
+        if ($Ident === 'Folge') {
+            $ok = $this->Szene((string)$Value);
+            $this->kachelMeldung($ok ? '✅ Szene „' . $Value . '" ausgeführt' : '⛔ Szene „' . $Value . '" nicht vollständig — siehe Meldungen');
+            return;
+        }
         if ($Ident !== 'Befehl') {
             throw new Exception('Unbekannte Aktion ' . $Ident);
         }
@@ -102,6 +148,97 @@ class IRHubFernbedienung extends IPSModule
         if (!$this->Senden($b['name'])) {
             throw new Exception('Senden von „' . $b['name'] . '" fehlgeschlagen — siehe Meldungen.');
         }
+    }
+
+    /** Gespeicherte Szene (benannte Folge) ausführen. Für Skripte: true/false. */
+    public function Szene(string $Name): bool
+    {
+        foreach ($this->szenen() as $sz) {
+            if ($sz['name'] === $Name) {
+                return $this->Folge($sz['folge']);
+            }
+        }
+        $this->LogMessage('Szene „' . $Name . '" gibt es nicht.', KL_WARNING);
+        return false;
+    }
+
+    public function SzeneSpeichern(string $Name, string $Folge): string
+    {
+        $Name = trim($Name);
+        $Folge = trim($Folge);
+        if ($Name === '' || $Folge === '') {
+            return 'ℹ️ Bitte Namen und Folge eintragen, z. B. „Filmabend" und „Ein, 2000, HDMI 1".';
+        }
+        $fehlen = [];
+        foreach (array_filter(array_map('trim', explode(',', $Folge)), 'strlen') as $teil) {
+            if ((!ctype_digit($teil) || strlen($teil) === 1) && $this->befehl($teil) === null) {
+                $fehlen[] = $teil;
+            }
+        }
+        if (count($fehlen) > 0) {
+            return '⛔ Unbekannte Befehle in der Folge: ' . implode(', ', $fehlen) . '.';
+        }
+        $liste = array_values(array_filter($this->szenen(), static function ($sz) use ($Name) {
+            return $sz['name'] !== $Name;
+        }));
+        $liste[] = ['name' => $Name, 'folge' => $Folge];
+        $this->szenenSchreiben($liste);
+        return '✅ Szene „' . $Name . '" gespeichert — sie erscheint als Taste auf der Kachel.';
+    }
+
+    public function SzeneLoeschen(string $Name): string
+    {
+        $liste = array_values(array_filter($this->szenen(), static function ($sz) use ($Name) {
+            return $sz['name'] !== $Name;
+        }));
+        if (count($liste) === count($this->szenen())) {
+            return 'ℹ️ Bitte zuerst eine Szene in der Liste auswählen.';
+        }
+        $this->szenenSchreiben($liste);
+        return '✅ Szene „' . $Name . '" gelöscht.';
+    }
+
+    /** Gruppe und Symbol einer Taste auf der Kachel ('' = automatisch, Gruppe 'aus' = ausblenden). */
+    public function TasteAnpassen(string $Name, string $Gruppe, string $Symbol): string
+    {
+        if ($Gruppe !== '' && $Gruppe !== IRHubTasten::AUSGEBLENDET && !isset(IRHubTasten::GRUPPEN[$Gruppe])) {
+            return '⛔ Unbekannte Gruppe ' . $Gruppe;
+        }
+        $liste = $this->befehle();
+        $gefunden = false;
+        foreach ($liste as &$b) {
+            if ($b['name'] === $Name) {
+                $b['gruppe'] = $Gruppe;
+                $b['symbol'] = mb_substr(trim($Symbol), 0, 4);
+                $gefunden = true;
+            }
+        }
+        unset($b);
+        if (!$gefunden) {
+            return 'ℹ️ Befehl „' . $Name . '" gibt es nicht.';
+        }
+        $this->befehleSchreiben($liste);
+        return '✅ Taste „' . $Name . '" angepasst.';
+    }
+
+    private function szenen(): array
+    {
+        $l = json_decode((string)$this->ReadAttributeString('Szenen'), true);
+        return is_array($l) ? array_values($l) : [];
+    }
+
+    private function szenenSchreiben(array $liste): void
+    {
+        $this->WriteAttributeString('Szenen', (string)json_encode(array_values($liste)));
+        $this->UpdateFormField('SzenenListe', 'values', (string)json_encode($this->szenenWerte()));
+        $this->kachelAktualisieren('');
+    }
+
+    private function szenenWerte(): array
+    {
+        return array_map(static function ($sz) {
+            return ['name' => $sz['name'], 'folge' => $sz['folge']];
+        }, $this->szenen());
     }
 
     // ------------------------------------------------------------------ Befehle pflegen
@@ -216,8 +353,8 @@ class IRHubFernbedienung extends IPSModule
         if ($name === '') {
             return '⛔ Bitte einen Namen für den Befehl eintragen.';
         }
-        if (ctype_digit($name) || strpos($name, ',') !== false) {
-            return '⛔ Namen dürfen nicht nur aus Ziffern bestehen und kein Komma enthalten (beides hat in Folgen eine eigene Bedeutung).';
+        if ((ctype_digit($name) && strlen($name) > 1) || strpos($name, ',') !== false) {
+            return '⛔ Namen dürfen kein Komma enthalten und nur als einzelne Ziffer (0–9) aus Ziffern bestehen — mehrstellige Zahlen sind in Folgen Pausen.';
         }
         $liste = $this->befehle();
         $ersetzt = false;
@@ -256,6 +393,7 @@ class IRHubFernbedienung extends IPSModule
         $this->WriteAttributeString('Befehle', (string)json_encode(array_values($liste)));
         $this->variablePflegen();
         $this->UpdateFormField('BefehlListe', 'values', (string)json_encode($this->listenWerte()));
+        $this->kachelAktualisieren('');
     }
 
     private function variablePflegen(): void
@@ -284,7 +422,14 @@ class IRHubFernbedienung extends IPSModule
     {
         $werte = [];
         foreach ($this->befehle() as $b) {
-            $werte[] = ['name' => $b['name'], 'art' => IRHubCode::beschreibung(IRHubCode::ausBase64($b['code']))];
+            [$autoGruppe, $autoSymbol] = IRHubTasten::automatisch($b['name']);
+            $werte[] = [
+                'name'   => $b['name'],
+                'art'    => IRHubCode::beschreibung(IRHubCode::ausBase64($b['code'])),
+                'gruppe' => (string)($b['gruppe'] ?? ''),
+                'symbol' => (string)($b['symbol'] ?? ''),
+                'auto'   => IRHubTasten::GRUPPEN[$autoGruppe] . ($autoSymbol !== '' ? ' ' . $autoSymbol : ''),
+            ];
         }
         return $werte;
     }
@@ -309,7 +454,8 @@ class IRHubFernbedienung extends IPSModule
         return [
             'Lernen: Namen eintragen, „Infrarot lernen" drücken, Taste der Original-Fernbedienung aus 10–30 cm auf das Broadlink-Gerät richten. Danach „Testen" — reagiert das Gerät, „Speichern".',
             'Funk (433/315 MHz, nur Pro-Modelle): „Frequenz suchen" — Taste gedrückt halten, bis die Frequenz gefunden ist, dann loslassen und einmal kurz drücken. Klappt die Suche nicht, die feste Frequenz wählen.',
-            'Skripte: IRHUB_Senden($id, "Ein"), IRHUB_Folge($id, "Ein, 2000, HDMI 1"), IRHUB_SendenCode($id, "JgC…") — alle liefern true/false.',
+            'Skripte: IRHUB_Senden($id, "Ein"), IRHUB_Folge($id, "Ein, 2000, HDMI 1"), IRHUB_Szene($id, "Filmabend"), IRHUB_SendenCode($id, "JgC…") — alle liefern true/false.',
+            'Kachel: Die Instanz in der Kachel-Visualisierung platzieren. Tasten ordnen sich nach dem Namen selbst (Lauter/Leiser → Lautstärke, 0–9 → Ziffernblock, Hoch/Runter/OK → Steuerkreuz); Gruppe und Symbol lassen sich in der Befehlsliste ändern.',
             'Klimaanlagen bitte mit der Instanz „Klimaanlage" einbinden: deren Codes enthalten immer den kompletten Zustand.',
         ];
     }
@@ -318,6 +464,14 @@ class IRHubFernbedienung extends IPSModule
     {
         $info = $this->geraetInfo();
         $fach = [
+            ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📱  Kachel', 'items' => [
+                ['type' => 'Label', 'caption' => 'Diese Instanz ist selbst eine Kachel für die Kachel-Visualisierung: ein Tastenfeld mit Ein/Aus, Lautstärke- und Programmwippe, Steuerkreuz, Ziffernblock und Szenen. Beim Vergrößern zeigt Symcon stattdessen die Variable „Befehl".'],
+                ['type' => 'Select', 'name' => 'Farbschema', 'caption' => 'Farben der Kachel', 'options' => [
+                    ['caption' => 'automatisch (wie die Visualisierung)', 'value' => 0],
+                    ['caption' => 'hell', 'value' => 1],
+                    ['caption' => 'dunkel', 'value' => 2],
+                ]],
+            ]],
             ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📡  Broadlink-Gerät', 'items' => [
                 ['type' => 'Label', 'caption' => count($info) > 0
                     ? '🔗 Sendet über ' . IPS_GetName((int)IPS_GetInstance($this->InstanceID)['ConnectionID']) . ' (' . $info['modell'] . ($info['funk'] ? ', Infrarot und Funk' : ', nur Infrarot') . ')'
@@ -338,10 +492,15 @@ class IRHubFernbedienung extends IPSModule
                 ]
             )],
             ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎛️  Befehle', 'items' => [
+                ['type' => 'Label', 'caption' => 'Gruppe und Symbol bestimmen, wo und wie die Taste auf der Kachel erscheint. Leer = automatisch aus dem Namen (Spalte „Automatisch"). Zum Ändern doppelt auf die Zelle klicken; „nicht auf der Kachel" blendet die Taste aus.'],
                 ['type' => 'List', 'name' => 'BefehlListe', 'rowCount' => 10, 'add' => false, 'delete' => false,
+                    'onEdit' => 'echo IRHUB_TasteAnpassen($id, $BefehlListe["name"], $BefehlListe["gruppe"], $BefehlListe["symbol"]);',
                     'columns' => [
-                        ['caption' => 'Name', 'name' => 'name', 'width' => '250px', 'add' => ''],
+                        ['caption' => 'Name', 'name' => 'name', 'width' => '200px', 'add' => ''],
                         ['caption' => 'Signal', 'name' => 'art', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Automatisch', 'name' => 'auto', 'width' => '150px', 'add' => ''],
+                        ['caption' => 'Gruppe', 'name' => 'gruppe', 'width' => '170px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => IRHubTasten::gruppenOptionen()]],
+                        ['caption' => 'Symbol', 'name' => 'symbol', 'width' => '80px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                     ],
                     'values' => $this->listenWerte(),
                 ],
@@ -351,8 +510,28 @@ class IRHubFernbedienung extends IPSModule
                     ['type' => 'Button', 'caption' => '🗑 Löschen', 'confirm' => 'Befehl wirklich löschen?', 'onClick' => 'echo IRHUB_Loeschen($id, $BefehlListe["name"]);'],
                     ['type' => 'Button', 'caption' => '💾 Alle exportieren', 'onClick' => 'echo IRHUB_Exportieren($id);'],
                 ]],
-                ['type' => 'ValidationTextBox', 'name' => 'FolgeTest', 'caption' => 'Folge testen (z. B. Ein, 2000, HDMI 1)', 'width' => '600px'],
-                ['type' => 'Button', 'caption' => '▶️ Folge senden', 'onClick' => 'echo IRHUB_Folge($id, $FolgeTest) ? "✅ Folge gesendet." : "⛔ Mindestens ein Befehl fehlte oder scheiterte — siehe Meldungen.";'],
+            ]],
+            ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '✨  Szenen (Folgen als eigene Taste)', 'items' => [
+                ['type' => 'Label', 'caption' => 'Eine Szene sendet mehrere Befehle nacheinander, z. B. „Filmabend" = „Ein, 2000, HDMI 1, Lauter, Lauter". Zahlen sind Pausen in Millisekunden. Jede Szene wird eine Taste auf der Kachel.'],
+                ['type' => 'RowLayout', 'items' => [
+                    ['type' => 'ValidationTextBox', 'name' => 'SzeneName', 'caption' => 'Name der Szene'],
+                    ['type' => 'ValidationTextBox', 'name' => 'FolgeTest', 'caption' => 'Folge', 'width' => '400px'],
+                ]],
+                ['type' => 'RowLayout', 'items' => [
+                    ['type' => 'Button', 'caption' => '▶️ Folge testen', 'onClick' => 'echo IRHUB_Folge($id, $FolgeTest) ? "✅ Folge gesendet." : "⛔ Mindestens ein Befehl fehlte oder scheiterte — siehe Meldungen.";'],
+                    ['type' => 'Button', 'caption' => '💾 Als Szene speichern', 'onClick' => 'echo IRHUB_SzeneSpeichern($id, $SzeneName, $FolgeTest);'],
+                ]],
+                ['type' => 'List', 'name' => 'SzenenListe', 'rowCount' => 4, 'add' => false, 'delete' => false,
+                    'columns' => [
+                        ['caption' => 'Szene', 'name' => 'name', 'width' => '200px', 'add' => ''],
+                        ['caption' => 'Folge', 'name' => 'folge', 'width' => 'auto', 'add' => ''],
+                    ],
+                    'values' => $this->szenenWerte(),
+                ],
+                ['type' => 'RowLayout', 'items' => [
+                    ['type' => 'Button', 'caption' => '▶️ Szene ausführen', 'onClick' => 'echo IRHUB_Szene($id, $SzenenListe["name"]) ? "✅ Szene ausgeführt." : "⛔ Szene nicht vollständig — siehe Meldungen.";'],
+                    ['type' => 'Button', 'caption' => '🗑 Szene löschen', 'confirm' => 'Szene wirklich löschen?', 'onClick' => 'echo IRHUB_SzeneLoeschen($id, $SzenenListe["name"]);'],
+                ]],
             ]],
         ];
         return $this->irhubFormular($fach, $aktionen, [['code' => 102, 'icon' => 'active', 'caption' => 'Bereit']]);

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0 (25.10.2026)
+
+- Fernbedienung als Kachel: Tastenfeld mit Ein/Aus, Lautstärke- und Programmwippe, Steuerkreuz, Ziffernblock, Wiedergabe, Quellen und Szenen; automatische Einordnung nach dem Befehlsnamen, Gruppe/Symbol je Taste änderbar, Rückmeldung bei jedem Druck, Farbschema automatisch/hell/dunkel.
+- Szenen: benannte Folgen als eigene Taste (IRHUB_Szene).
+- Zifferntasten 0–9 lassen sich jetzt lernen; in Folgen gilt eine Zahl nur dann als Pause, wenn es keinen gleichnamigen Befehl gibt.
+
 ## 0.3.0 (25.10.2026)
 
 - Lernen: Countdown-Balken von 30 auf 0 s unter den Lernknöpfen; das Hinweis-Popup beim Start entfällt, weil es den Countdown verdeckt hätte.

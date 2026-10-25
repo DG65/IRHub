@@ -1,7 +1,7 @@
 # IRHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul-0.3.0-informational)
+![Modul Version](https://img.shields.io/badge/Modul-0.4.0-informational)
 ![Symcon Version](https://img.shields.io/badge/Symcon-9.0%2B-informational)
 ![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-orange)
 [![Check Style](https://github.com/DG65/IRHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/IRHub/actions/workflows/check-style.yml)
@@ -28,7 +28,7 @@ und unbegrenzt viele Befehle.
 |---|---|
 | **IRHub Konfigurator** | sucht Broadlink-Geräte im Netz und legt sie an |
 | **IRHub Broadlink-Gerät** | ein Broadlink im Netz: Anmeldung, Senden, Lernen, Temperatur/Feuchte (RM pro, RM4 mit Kabelsensor) |
-| **IRHub Fernbedienung** | benannte Befehle lernen, importieren, senden; Folgen mit Pausen |
+| **IRHub Fernbedienung** | benannte Befehle lernen, importieren, senden; Szenen; **Kachel mit Tastenfeld** |
 | **IRHub Klimaanlage** | Klimagerät mit Betriebsart, Temperatur, Lüfter — Codes gelernt oder aus fertiger Codetabelle |
 
 Fernbedienungen und Klimaanlagen hängen unter einem Broadlink-Gerät; beliebig viele je Gerät.
@@ -52,9 +52,17 @@ Fernbedienungen und Klimaanlagen hängen unter einem Broadlink-Gerät; beliebig 
   feste Frequenz 433,92 bzw. 315 MHz wählen.
 - **Importieren:** fertige Codes als Broadlink-Base64 („JgC…", wie in Home Assistant/SmartIR),
   Hex, Pronto Hex oder Pulsfolge in µs; ganze Sammlungen als JSON `{"Name": "Code"}`.
+- **Kachel:** Die Fernbedienung ist selbst eine Kachel für die Kachel-Visualisierung — ein
+  Tastenfeld mit Ein/Aus, Lautstärke- und Programmwippe, Steuerkreuz mit OK, Ziffernblock,
+  Wiedergabe, Quellen und Szenen. Die Tasten ordnen sich nach ihrem Namen selbst ein
+  („Lauter" → Lautstärke, „3" → Ziffernblock, „OK" → Steuerkreuz); Gruppe und Symbol lassen
+  sich in der Befehlsliste ändern, Tasten lassen sich ausblenden. Jeder Druck meldet auf der
+  Kachel, ob gesendet wurde. Farben hell/dunkel automatisch oder fest.
+- **Szenen:** benannte Folgen wie „Filmabend = Ein, 2000, HDMI 1" werden eine eigene Taste.
 - **Skripte:**
   ```php
   IRHUB_Senden($id, 'Ein');                 // true/false
+  IRHUB_Szene($id, 'Filmabend');            // true/false
   IRHUB_Folge($id, 'Ein, 2000, HDMI 1');    // Zahlen = Pause in ms
   IRHUB_SendenCode($id, 'JgCSAA…');         // beliebiger Code
   ```

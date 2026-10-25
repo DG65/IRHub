@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--fg:#1d1d1f;--fg2:#6e6e73;--rand:rgba(0,0,0,.12);--fl:rgba(0,0,0,.05);--fl2:rgba(0,0,0,.09);--seite:#ffffff;
+--gruen:#1f7a3a;--gruenbg:#e3f4e8;--blau:#0b5cad;--blaubg:#e3effb;--rot:#a82a2a;--rotbg:#fbe6e6;--lila:#6a3fb5;--lilabg:#efe8fb;
+--s:clamp(13px,calc(7px + 1.6vmin),21px)}
+@media (prefers-color-scheme:dark){:root:not(.hell){--fg:#f2f2f7;--fg2:#a1a1a6;--rand:rgba(255,255,255,.16);--fl:rgba(255,255,255,.07);--fl2:rgba(255,255,255,.13);--seite:#1c1c1e;
+--gruen:#7fd89a;--gruenbg:rgba(52,199,89,.18);--blau:#8cc4ff;--blaubg:rgba(10,132,255,.2);--rot:#ff9b9b;--rotbg:rgba(255,69,58,.2);--lila:#c9b2ff;--lilabg:rgba(150,110,255,.2)}}
+:root.dunkel{--fg:#f2f2f7;--fg2:#a1a1a6;--rand:rgba(255,255,255,.16);--fl:rgba(255,255,255,.07);--fl2:rgba(255,255,255,.13);--seite:#1c1c1e;
+--gruen:#7fd89a;--gruenbg:rgba(52,199,89,.18);--blau:#8cc4ff;--blaubg:rgba(10,132,255,.2);--rot:#ff9b9b;--rotbg:rgba(255,69,58,.2);--lila:#c9b2ff;--lilabg:rgba(150,110,255,.2)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:var(--s)}
+/* Symcon legt Instanzname + Vergrößern-Symbol als eigene Ebene über die oberen ~44 px der Kachel — freihalten. */
+body{padding:44px 14px 10px;display:flex;flex-direction:column}
+#app{flex:1;display:flex;flex-direction:column;gap:1em}
+.abschnitt{font-size:.72em;color:var(--fg2);text-transform:uppercase;letter-spacing:.06em;margin:0 0 .45em}
+.reihe{display:flex;flex-wrap:wrap;gap:.5em}
+.mitte{display:flex;flex-wrap:wrap;gap:1.4em;align-items:flex-start;justify-content:center}
+.raster{display:grid;grid-template-columns:repeat(auto-fill,minmax(5.2em,1fr));gap:.5em}
+button{font:inherit;color:var(--fg);background:var(--fl);border:1px solid var(--rand);border-radius:.85em;padding:.45em .5em;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15em;min-height:2.9em;min-width:2.9em;
+  -webkit-tap-highlight-color:transparent;user-select:none;transition:transform .08s,background .15s}
+button:active,button.gedrueckt{transform:scale(.93);background:var(--fl2)}
+button .sym{font-size:1.25em;line-height:1}
+button .txt{font-size:.68em;color:var(--fg2);max-width:7em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+button.nur .txt{font-size:1em;color:var(--fg)}
+button.power{border-radius:50%;width:3.4em;height:3.4em;background:var(--rotbg);color:var(--rot);border-color:transparent}
+button.power .txt{color:var(--rot)}
+button.power.gruen{background:var(--gruenbg);color:var(--gruen)}button.power.gruen .txt{color:var(--gruen)}
+button.szene{flex-direction:row;gap:.4em;border-radius:2em;padding:.45em 1em;min-height:0;background:var(--lilabg);border-color:transparent}
+button.szene .txt{font-size:.9em;color:var(--lila);max-width:12em}
+.wippe{display:flex;flex-direction:column;align-items:center;gap:.35em}
+.wippe .koerper{display:flex;flex-direction:column;border:1px solid var(--rand);border-radius:1.6em;background:var(--fl);overflow:hidden}
+.wippe .koerper button{border:none;border-radius:0;background:transparent;width:3.4em;min-height:3em}
+.wippe .koerper button+button{border-top:1px solid var(--rand)}
+.wippe .koerper button:active,.wippe .koerper button.gedrueckt{background:var(--fl2)}
+.wippe .name{font-size:.7em;color:var(--fg2)}
+.kreuz{display:grid;grid-template-columns:repeat(3,3.3em);grid-template-rows:repeat(3,3.3em);gap:.3em}
+.kreuz button{min-width:0;min-height:0;padding:0}
+.kreuz .ok{border-radius:50%;background:var(--blaubg);color:var(--blau);border-color:transparent;font-weight:600}
+.kreuz .pfeil{background:var(--fl);border-radius:.8em}
+.kreuz .leer{visibility:hidden}
+.ziffern{display:grid;grid-template-columns:repeat(3,3.3em);gap:.35em}
+.ziffern button{min-height:2.8em;border-radius:50%;width:3.3em;height:3.3em}
+.ziffern .null{grid-column:2}
+.leerhinweis{color:var(--fg2);font-size:.95em;line-height:1.4;padding:1em .2em}
+/* Rückmeldung schwebt unten in der Kachel: auch sichtbar, wenn das Tastenfeld höher ist als die Kachel. */
+body{padding-bottom:3em}
+.meldung{position:fixed;left:50%;bottom:.7em;transform:translateX(-50%);max-width:calc(100% - 2em);font-size:.82em;
+  padding:.45em 1em;border-radius:2em;background:var(--seite);color:var(--fg);border:1px solid var(--rand);
+  box-shadow:0 2px 10px rgba(0,0,0,.15);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;transition:opacity .2s}
+.meldung:empty{opacity:0}
+.meldung.fehler{color:var(--rot);border-color:var(--rot)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+var daten = null, rueck = '', rueckFehler = false, rueckUhr = null;
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+
+// Taste drücken: requestAction() der Visualisierung, Ergebnis kommt per handleMessage zurück.
+function druecken(el, art, name) {
+  el.classList.add('gedrueckt');
+  setTimeout(function () { el.classList.remove('gedrueckt'); }, 180);
+  meldung('📤 „' + name + '" …', false);
+  if (typeof requestAction === 'function') {
+    requestAction(art === 'folge' ? 'Folge' : 'Taste', name);
+  } else {
+    meldung('⛔ Keine Verbindung zur Visualisierung', true);
+  }
+}
+
+function meldung(text, fehler) {
+  rueck = text; rueckFehler = fehler;
+  var m = document.getElementById('meldung');
+  if (m) { m.textContent = text; m.className = 'meldung' + (fehler ? ' fehler' : ''); }
+  clearTimeout(rueckUhr);
+  // Erfolg verschwindet nach 4 s, Fehler bleibt länger stehen.
+  rueckUhr = setTimeout(function () { rueck = ''; var mm = document.getElementById('meldung'); if (mm) { mm.textContent = ''; } }, fehler ? 15000 : 4000);
+}
+
+function knopf(t, klasse) {
+  var nurText = !t.symbol;
+  var inhalt = nurText ? '<span class="txt">' + esc(t.name) + '</span>'
+    : '<span class="sym">' + esc(t.symbol) + '</span>' + (klasse && klasse.indexOf('pfeil') >= 0 || (klasse || '').indexOf('ok') >= 0 || (klasse || '').indexOf('ziffer') >= 0 ? '' : '<span class="txt">' + esc(t.name) + '</span>');
+  return '<button class="' + (klasse || '') + (nurText ? ' nur' : '') + '" title="' + esc(t.name) + '" data-art="' + t.art + '" data-name="' + esc(t.name) + '">' + inhalt + '</button>';
+}
+
+function gruppe(name) { return (daten.tasten || []).filter(function (t) { return t.gruppe === name; }); }
+function abschnitt(titel, inhalt) { return '<div><div class="abschnitt">' + esc(titel) + '</div>' + inhalt + '</div>'; }
+
+function wippe(titel, tasten) {
+  if (!tasten.length) { return ''; }
+  var plaetze = {};
+  tasten.forEach(function (t) { if (t.platz && !plaetze[t.platz]) { plaetze[t.platz] = t; } });
+  var rest = tasten.filter(function (t) { return !t.platz || plaetze[t.platz] !== t; });
+  var koerper = ['plus', 'mitte', 'minus'].filter(function (p) { return plaetze[p]; }).map(function (p) { return knopf(plaetze[p], 'pfeil'); }).join('');
+  return '<div class="wippe">' + (koerper ? '<div class="koerper">' + koerper + '</div>' : '')
+    + '<div class="name">' + esc(titel) + '</div>'
+    + (rest.length ? '<div class="reihe">' + rest.map(function (t) { return knopf(t, ''); }).join('') + '</div>' : '') + '</div>';
+}
+
+function kreuz(tasten) {
+  if (!tasten.length) { return ''; }
+  var plaetze = {};
+  tasten.forEach(function (t) { if (t.platz && !plaetze[t.platz]) { plaetze[t.platz] = t; } });
+  var rest = tasten.filter(function (t) { return !t.platz || plaetze[t.platz] !== t; });
+  var raster = [['menue', 'oben', 'info'], ['links', 'mitte', 'rechts'], ['zurueck', 'unten', 'home']];
+  var html = '';
+  raster.forEach(function (zeile) {
+    zeile.forEach(function (p) {
+      var t = plaetze[p];
+      if (!t) { html += '<button class="leer" tabindex="-1"></button>'; return; }
+      var k = p === 'mitte' ? 'ok' : (['oben', 'unten', 'links', 'rechts'].indexOf(p) >= 0 ? 'pfeil' : '');
+      html += knopf(t, k);
+    });
+  });
+  return '<div><div class="kreuz">' + html + '</div>'
+    + (rest.length ? '<div class="reihe" style="margin-top:.5em">' + rest.map(function (t) { return knopf(t, ''); }).join('') + '</div>' : '') + '</div>';
+}
+
+function ziffern(tasten) {
+  if (!tasten.length) { return ''; }
+  return '<div class="ziffern">' + tasten.map(function (t) {
+    return knopf({art: t.art, name: t.name, symbol: ''}, t.name === '0' ? 'ziffer null' : 'ziffer');
+  }).join('') + '</div>';
+}
+
+function zeichnen() {
+  var d = daten; if (!d) { return; }
+  var app = document.getElementById('app');
+  if (!(d.tasten || []).length) {
+    app.innerHTML = '<div class="leerhinweis">Noch keine Tasten. In der Instanz Befehle lernen — sie erscheinen dann automatisch hier.</div>'
+      + '<div id="meldung" class="meldung"></div>';
+    return;
+  }
+  var h = '';
+  var ein = gruppe('ein');
+  if (ein.length) {
+    h += '<div class="reihe">' + ein.map(function (t) {
+      var gruen = /^(ein|an|on)$/i.test(t.name);
+      return knopf(t, 'power' + (gruen ? ' gruen' : ''));
+    }).join('') + '</div>';
+  }
+  var szenen = gruppe('szenen');
+  if (szenen.length) { h += abschnitt('Szenen', '<div class="reihe">' + szenen.map(function (t) { return knopf(t, 'szene'); }).join('') + '</div>'); }
+  var mitte = wippe('Lautstärke', gruppe('lautstaerke')) + kreuz(gruppe('navigation')) + wippe('Programm', gruppe('programme')) + ziffern(gruppe('ziffern'));
+  if (mitte) { h += '<div class="mitte">' + mitte + '</div>'; }
+  [['wiedergabe', 'Wiedergabe'], ['quellen', 'Quellen'], ['weitere', 'Weitere']].forEach(function (g) {
+    var t = gruppe(g[0]);
+    if (t.length) { h += abschnitt(g[1], '<div class="raster">' + t.map(function (x) { return knopf(x, ''); }).join('') + '</div>'); }
+  });
+  h += '<div id="meldung" class="meldung' + (rueckFehler ? ' fehler' : '') + '">' + esc(rueck) + '</div>';
+  app.innerHTML = h;
+}
+
+document.addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('button[data-name]') : null;
+  if (b) { druecken(b, b.getAttribute('data-art'), b.getAttribute('data-name')); }
+});
+
+// Symcon nennt der Kachel das Farbschema der Visualisierung nicht. Automatisch: Hintergrund
+// des umgebenden Rahmens messen, sonst prefers-color-scheme; fest „hell"/„dunkel" aus dem Formular.
+function farbschemaSetzen(wahl) {
+  var s = wahl === 1 ? 'hell' : (wahl === 2 ? 'dunkel' : hintergrundSchema());
+  document.documentElement.classList.toggle('hell', s === 'hell');
+  document.documentElement.classList.toggle('dunkel', s === 'dunkel');
+}
+function hintergrundSchema() {
+  try {
+    var el = window.frameElement;
+    while (el) {
+      var m = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
+      if (m && (m.length < 4 || Number(m[3]) > 0.5)) {
+        return (0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2]) / 255 < 0.5 ? 'dunkel' : 'hell';
+      }
+      el = el.parentElement;
+    }
+  } catch (e) { /* fremder Rahmen: nicht lesbar */ }
+  return '';
+}
+
+function handleMessage(raw) {
+  var neu = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (neu.rueck) {
+    meldung(neu.rueck, neu.rueck.indexOf('⛔') === 0 || neu.rueck.indexOf('⚠') === 0);
+    if (!neu.tasten) { return; }
+  }
+  daten = neu;
+  farbschemaSetzen(daten.farbschema || 0);
+  zeichnen();
+}
+</script>
+</body>
+</html>
