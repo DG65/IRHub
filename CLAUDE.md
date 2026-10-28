@@ -48,6 +48,18 @@
 - Anlass: Dietmar 25.10.2026 — verlinkte Klima-Instanz zeigte als Kachel „nicht viel". Meine frühere
   Annahme „Standard-Variablen reichen" war falsch.
 
+## Funk-Mitschnitt (0.6.0)
+
+- Im Splitter (`IRHubBroadlink`), Property `Mitschnitt` (Standard aus) + `MitschnittMHz` (433,92). Timer 1 s:
+  `find_rf_packet(MHz)` scharf, `check_data` abholen, nach jedem Signal und alle 15 s neu scharf.
+- Kind-Aktionen lernen/sweep/funkSuchen/abholen → Pause 45 s; senden/abbrechen → neu scharf.
+  Typ 0 (noch nicht per Hello gelernt) → warten, sonst falsches Paketformat.
+- Protokoll im Attribut (max. 200), Wiederholung = ähnliches Signal ≤ 3 s (`IRHubCode::aehnlich`:
+  erste 48 Pulse, ≥ 90 % innerhalb Faktor 1,6). Erkennung gegen `IRHUB_Exportieren` aller Kinder.
+- Übernahme per `IRHUB_Importieren`. Variablen `Funksignal`/`FunkErkannt` nur bei eingeschaltetem Mitschnitt.
+- **Live unbewiesen:** ob der Broadlink im Dauer-Lernmodus wirklich jedes Signal liefert, wie lange die Lücke
+  beim Neu-Scharfschalten ist, ob Sensorabfrage (0x01/0x24) den Lernmodus beendet. Beauftragt 28.10.2026.
+
 ## Offen / am echten Gerät prüfen
 
 - **Live 25.10.2026:** Dietmar hat IRHub in seinem Symcon installiert, alle Instanzen ließen sich fehlerfrei

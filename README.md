@@ -1,7 +1,7 @@
 # IRHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul-0.5.0-informational)
+![Modul Version](https://img.shields.io/badge/Modul-0.6.0-informational)
 ![Symcon Version](https://img.shields.io/badge/Symcon-9.0%2B-informational)
 ![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-orange)
 [![Check Style](https://github.com/DG65/IRHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/IRHub/actions/workflows/check-style.yml)
@@ -27,7 +27,7 @@ und unbegrenzt viele Befehle.
 | Instanz | Aufgabe |
 |---|---|
 | **IRHub Konfigurator** | sucht Broadlink-Geräte im Netz und legt sie an |
-| **IRHub Broadlink-Gerät** | ein Broadlink im Netz: Anmeldung, Senden, Lernen, Temperatur/Feuchte (RM pro, RM4 mit Kabelsensor) |
+| **IRHub Broadlink-Gerät** | ein Broadlink im Netz: Anmeldung, Senden, Lernen, Temperatur/Feuchte (RM pro, RM4 mit Kabelsensor), **Funk-Mitschnitt** |
 | **IRHub Fernbedienung** | benannte Befehle lernen, importieren, senden; Szenen; **Kachel mit Tastenfeld** |
 | **IRHub Klimaanlage** | Klimagerät mit Betriebsart, Temperatur, Lüfter — Codes gelernt oder aus fertiger Codetabelle; **Kachel im Thermostat-Stil** |
 
@@ -66,6 +66,21 @@ Fernbedienungen und Klimaanlagen hängen unter einem Broadlink-Gerät; beliebig 
   IRHUB_Folge($id, 'Ein, 2000, HDMI 1');    // Zahlen = Pause in ms
   IRHUB_SendenCode($id, 'JgCSAA…');         // beliebiger Code
   ```
+
+## Funk-Mitschnitt (RM pro/pro+, RM4 pro)
+
+Am Broadlink-Gerät lässt sich „📻 Funk-Mitschnitt" einschalten (Standard 433,92 MHz). IRHub hält
+den Broadlink dann ständig empfangsbereit und schreibt jedes empfangene Funksignal ins Protokoll:
+Datum und Uhrzeit, Frequenz, Signalart und Länge, Pulsfolge in µs, Wiederholungen (eine gehaltene
+Taste ist ein Eintrag mit Zähler). Ein Eintrag lässt sich mit einem Klick als Befehl in eine
+Fernbedienung übernehmen — Lernen ohne Lernknopf. Signale, die schon als Befehl gelernt sind,
+werden erkannt; die Variable „Erkanntes Funksignal" taugt als Auslöser für Ereignisse
+(z. B. Funkklingel → Push-Nachricht).
+
+Ein Broadlink empfängt nur im Lernmodus und hält dort genau ein Signal. Der Mitschnitt schaltet
+ihn deshalb fortlaufend scharf; die Leuchte kann dabei dauerhaft an sein. Lernt oder sendet eine
+Fernbedienung, pausiert er kurz. Wechselcode-Sender (Somfy RTS, moderne Garagentore) lassen sich
+protokollieren, aber nicht sinnvoll nachsenden.
 
 ## Klimaanlage
 

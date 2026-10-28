@@ -177,6 +177,8 @@ function IPS_GetInstanceListByModuleID($g)
     return $o;
 }
 function IPS_CreateInstance($g) { return neu(MODULKLASSEN[$g]); }
+function IRHUB_Exportieren($id) { return $GLOBALS['INST'][$id]->Exportieren(); }
+function IRHUB_Importieren($id, $name, $code) { return $GLOBALS['INST'][$id]->Importieren($name, $code); }
 function neu(string $klasse, int $parent = 0): int
 {
     $id = $GLOBALS['NEXT']++;
@@ -689,6 +691,88 @@ pruef('Formular-Auswahl: alle Gruppen + aus', count($opt) === count(IRHubTasten:
 foreach (['Lauter', 'Vol+', 'Leiser', 'Stumm', 'Kanal+', 'CH-', 'Hoch', 'Runter', 'Links', 'Rechts', 'OK', 'Menü', 'Zurück', 'Play', 'HDMI 1', '7'] as $n) {
     pruef("Automatik erkennt „$n\"", IRHubTasten::automatisch($n)[0] !== 'weitere');
 }
+
+// Funk-Mitschnitt
+abschnitt('Funk-Mitschnitt');
+$klingel = IRHubCode::pulseZuPaket(array_merge(array_merge(...array_fill(0, 12, [350, 1050, 1050, 350])), [350, 10800]), IRHubCode::TYP_RF433);
+$klingelZitter = IRHubCode::pulseZuPaket(array_merge(array_merge(...array_fill(0, 12, [370, 1000, 1100, 330])), [360, 10900]), IRHubCode::TYP_RF433);
+$markise = IRHubCode::pulseZuPaket(array_merge(array_merge(...array_fill(0, 12, [700, 300, 300, 700])), [300, 8000]), IRHubCode::TYP_RF433);
+pruef('Ähnlich: gleiches Signal mit Zeitschwankung', IRHubCode::aehnlich($klingel, $klingelZitter));
+pruef('Ähnlich: anderes Signal nicht', !IRHubCode::aehnlich($klingel, $markise));
+pruef('Ähnlich: Infrarot ≠ Funk', !IRHubCode::aehnlich($klingel, IRHubCode::pulseZuPaket(array_merge(...array_fill(0, 12, [350, 1050, 1050, 350])))));
+$B->props['Geraetetyp'] = 0x27A9;   // weiter oben auf RM mini 3 umgestellt
+pruef('Mitschnitt ist standardmäßig aus', $B->props['Mitschnitt'] === false && $B->timers['Mitschnitt'][0] === 0 && !isset($B->vars['Funksignal']));
+$B->props['Mitschnitt'] = true;
+$B->props['Geraetetyp'] = 0;          // wie von Hand angelegt: Typ noch unbekannt
+$B->ApplyChanges();
+$sim->befehle = [];
+$B->attrs['MitschnittPauseBis'] = 0;
+$B->MitschnittSchritt();
+pruef('Typ noch unbekannt: Mitschnitt wartet, sendet nichts', $sim->befehle === []);
+$B->Abfrage();                         // lernt Typ und MAC per Hello
+$B->props['Geraetetyp'] = 0x27A9;
+pruef('Mitschnitt an: Timer 1 s, Variablen da', $B->timers['Mitschnitt'][0] === 1000 && isset($B->vars['Funksignal'], $B->vars['FunkErkannt']));
+$sim->befehle = [];
+$sim->wartendCode = '';
+$B->attrs['MitschnittPauseBis'] = 0;   // die Fernbedienung hat oben zuletzt gelernt → Pause vorbei
+$B->MitschnittSchritt();
+pruef('Erster Schritt schaltet scharf (0x1B, 433,92 MHz)', $sim->befehle === [0x1B] && $sim->lernen);
+$B->MitschnittSchritt();
+pruef('Ohne Signal: nur Abfrage, kein Eintrag', end($sim->befehle) === 0x04 && $B->ReadAttributeStringOeffentlich('Protokoll') === '[]');
+$sim->wartendCode = $klingel . "\0\0\0\0";
+$sim->wartendNach = 1;
+$B->MitschnittSchritt();
+$prot = json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true);
+pruef('Signal protokolliert (Code, Zeit, 433,92 MHz)', count($prot) === 1 && IRHubCode::ausBase64($prot[0]['code']) === $klingel && abs($prot[0]['mhz'] - 433.92) < 0.001 && $prot[0]['zeit'] > 0);
+pruef('Variable „Letztes Funksignal" mit Datum', preg_match('/^\d\d\.\d\d\.\d{4} \d\d:\d\d:\d\d · unbekannt · Funk 433 MHz/u', (string)$B->vars['Funksignal']['value']) === 1, (string)$B->vars['Funksignal']['value']);
+pruef('Protokoll-Liste im offenen Formular aufgefrischt', strpos($GLOBALS['FORM'][$bl]['ProtokollListe']['values'] ?? '', '335 1035 1035 335') !== false);
+$B->MitschnittSchritt();
+pruef('Nach dem Signal sofort neu scharf', end($sim->befehle) === 0x1B);
+$sim->wartendCode = $klingelZitter;
+$sim->wartendNach = 1;
+$B->MitschnittSchritt();
+$prot = json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true);
+pruef('Gehaltene Taste: kein neuer Eintrag, Wiederholung gezählt', count($prot) === 1 && $prot[0]['wdh'] === 2);
+$B->MitschnittSchritt();
+$sim->wartendCode = $markise;
+$sim->wartendNach = 1;
+$B->MitschnittSchritt();
+$prot = json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true);
+pruef('Anderes Signal: neuer Eintrag oben', count($prot) === 2 && IRHubCode::ausBase64($prot[0]['code']) === $markise);
+$liste = json_decode($GLOBALS['FORM'][$bl]['ProtokollListe']['values'], true);
+pruef('Liste zeigt Zeitpunkt TT.MM.JJJJ und Pulsfolge', preg_match('/^\d\d\.\d\d\.\d{4} /', $liste[0]['zeit']) === 1 && $liste[0]['folge'] === IRHubCode::folgeText($markise, 12) && preg_match('/^\d+ \d+ \d+ \d+ /', $liste[0]['folge']) === 1 && $liste[1]['wdh'] === '2×');
+// Direkt lernen: in die Fernbedienung übernehmen
+pruef('Übernehmen ohne Auswahl → Hinweis', strpos($B->MitschnittUebernehmen($fb, 'Klingel', ''), 'ℹ️') === 0);
+pruef('Übernehmen in fremde Instanz abgelehnt', strpos($B->MitschnittUebernehmen(4711, 'Klingel', $prot[1]['code']), 'ℹ️') === 0);
+$text = $B->MitschnittUebernehmen($fb, 'Klingel', $prot[1]['code']);
+pruef('Übernommen in die Fernbedienung', strpos($text, '✅ „Klingel"') === 0 && $F->Senden('Klingel') && end($sim->gesendet) === $klingel, $text);
+pruef('Protokoll markiert den Eintrag als erkannt', strpos(json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true)[1]['erkannt'], 'Klingel') !== false);
+// Später empfangenes, gleiches Signal wird erkannt
+$B->MitschnittSchritt();
+$sim->wartendCode = $klingelZitter;
+$sim->wartendNach = 1;
+$B->WriteAttributeStringOeffentlich('Protokoll', json_encode(array_map(static function ($e) { $e['bis'] -= 10; return $e; }, json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true))));
+$B->MitschnittSchritt();
+pruef('Bekanntes Signal wird erkannt', strpos((string)$B->vars['FunkErkannt']['value'], 'Klingel') !== false && strpos((string)$B->vars['Funksignal']['value'], 'Klingel') !== false, (string)$B->vars['FunkErkannt']['value']);
+// Pause, solange eine Fernbedienung lernt
+$F->LernenStarten('ir');
+$n = count($sim->befehle);
+$B->MitschnittSchritt();
+pruef('Pause während die Fernbedienung lernt', count($sim->befehle) === $n);
+$F->LernenAbbrechen();
+pruef('Senden aus dem Protokoll', strpos($B->MitschnittSenden(json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true)[0]['code']), '✅') === 0);
+pruef('Protokoll leeren', strpos($B->ProtokollLeeren(), '✅') === 0 && $B->ReadAttributeStringOeffentlich('Protokoll') === '[]');
+$B->attrs['MitschnittPauseBis'] = 0;
+$form = json_encode(json_decode($B->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+pruef('Formular: Mitschnitt-Panel mit Liste und Übernahme', strpos($form, '"name":"ProtokollListe"') !== false && strpos($form, '"name":"ZielFernbedienung"') !== false && strpos($form, 'Mitschnitt läuft auf 433,92 MHz') !== false);
+// Gerät ohne Funk: Mitschnitt schaltet sich ab
+$B->WriteAttributeStringOeffentlich('Geraet', json_encode(['typ' => 0x2737, 'mac' => 'a0:43:b0:55:10:f7', 'kennung' => '192.168.1.50|' . 0x27A9]));
+$B->MitschnittSchritt();
+pruef('Ohne Funkempfänger: Timer aus, ehrlicher Hinweis', $B->timers['Mitschnitt'][0] === 0 && strpos(json_encode(json_decode($B->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'hat keinen Funkempfänger') !== false);
+$B->WriteAttributeStringOeffentlich('Geraet', json_encode(['typ' => 0x27A9, 'mac' => 'a0:43:b0:55:10:f7', 'kennung' => '192.168.1.50|' . 0x27A9]));
+$B->props['Mitschnitt'] = false;
+$B->ApplyChanges();
+pruef('Mitschnitt aus: Timer aus, Variablen weg', $B->timers['Mitschnitt'][0] === 0 && !isset($B->vars['Funksignal']));
 
 // Gesperrtes Gerät: Status 201 + verständliche Meldung
 $sim->gesperrt = true;

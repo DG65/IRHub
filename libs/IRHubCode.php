@@ -259,6 +259,40 @@ class IRHubCode
         return sprintf('unbekanntes Klima-Protokoll (%d Bytes, Kopf %d/%d µs)', $n, $analyse['kopf'][0], $analyse['kopf'][1]);
     }
 
+    /**
+     * Sind zwei Aufnahmen dasselbe Signal? Gelernte Codes schwanken in den Zeiten und in der
+     * Zahl der Wiederholungen. Verglichen werden deshalb die ersten 48 Pulse: mindestens 90 %
+     * davon dürfen höchstens um den Faktor 1,6 voneinander abweichen.
+     */
+    public static function aehnlich(string $a, string $b): bool
+    {
+        if (self::istFunk($a) !== self::istFunk($b)) {
+            return false;
+        }
+        $pa = self::paketZuPulse($a);
+        $pb = self::paketZuPulse($b);
+        $n = min(48, count($pa), count($pb));
+        if ($n < 8) {
+            return false;
+        }
+        $gut = 0;
+        for ($i = 0; $i < $n; $i++) {
+            $x = max(1, $pa[$i]);
+            $y = max(1, $pb[$i]);
+            if (max($x, $y) / min($x, $y) <= 1.6) {
+                $gut++;
+            }
+        }
+        return $gut >= 0.9 * $n;
+    }
+
+    /** Pulsfolge zum Anzeigen: die ersten Werte in µs, z. B. „350 1050 350 1050 …". */
+    public static function folgeText(string $paket, int $anzahl): string
+    {
+        $p = self::paketZuPulse($paket);
+        return implode(' ', array_slice($p, 0, $anzahl)) . (count($p) > $anzahl ? ' …' : '');
+    }
+
     /** Kurzbeschreibung für Formular und Liste. */
     public static function beschreibung(string $paket): string
     {

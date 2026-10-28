@@ -25,6 +25,10 @@ trait IRHubFormular
         '0.1.1' => [
             '• Klimaanlage: Betriebsart „Lüften" auch bei Codetabellen, die sie „fan" nennen (z. B. Beko, Dimplex, Galanz).',
         ],
+        '0.6.0' => [
+            '• 📻 Funk-Mitschnitt (RM pro/pro+, RM4 pro): am Broadlink-Gerät einschalten — jedes empfangene Funksignal landet mit Datum und Uhrzeit im Protokoll und lässt sich mit einem Klick als Befehl in eine Fernbedienung übernehmen.',
+            '• Bekannte Signale werden erkannt; die Variable „Erkanntes Funksignal" eignet sich als Auslöser, z. B. für eine Funkklingel.',
+        ],
         '0.5.0' => [
             '• 📱 Auch die Klimaanlage ist jetzt eine Kachel: Solltemperatur mit −/+, Betriebsart, Lüfter, Ein/Aus und die Raumtemperatur zum Vergleich.',
             '• 🌡️ Raumtemperatur kommt automatisch vom Temperatursensor des Broadlink — ohne Sensor im Panel „Kachel und Raumtemperatur" eine Variable wählen.',

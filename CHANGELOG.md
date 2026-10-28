@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0 (28.10.2026)
+
+- Funk-Mitschnitt am Broadlink-Gerät (RM pro/pro+, RM4 pro, Standard aus): empfangene Funksignale mit Datum, Uhrzeit, Frequenz, Pulsfolge und Wiederholungen protokollieren; Eintrag direkt in eine Fernbedienung übernehmen; bekannte Signale werden erkannt (Variable „Erkanntes Funksignal" als Auslöser). Pausiert automatisch, während eine Fernbedienung lernt.
+
 ## 0.5.0 (25.10.2026)
 
 - Klimaanlage als Kachel im Thermostat-Stil: Solltemperatur mit −/+ (gesammelt, einmal gesendet), Ein/Aus, Betriebsart, Lüfter, Raumtemperatur (automatisch vom Broadlink-Sensor, sonst wählbare Variable), Hinweis und Rücksprung bei fehlendem Code, „Erneut senden".
