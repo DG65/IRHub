@@ -57,8 +57,9 @@
 - Protokoll im Attribut (max. 200), Wiederholung = ähnliches Signal ≤ 3 s (`IRHubCode::aehnlich`:
   erste 48 Pulse, ≥ 90 % innerhalb Faktor 1,6). Erkennung gegen `IRHUB_Exportieren` aller Kinder.
 - Übernahme per `IRHUB_Importieren`. Variablen `Funksignal`/`FunkErkannt` nur bei eingeschaltetem Mitschnitt.
-- **Live unbewiesen:** ob der Broadlink im Dauer-Lernmodus wirklich jedes Signal liefert, wie lange die Lücke
-  beim Neu-Scharfschalten ist, ob Sensorabfrage (0x01/0x24) den Lernmodus beendet. Beauftragt 28.10.2026.
+- **Live bestätigt 28.10.2026:** bei Albin getestet, „funktioniert einwandfrei" (Dietmar). Welches Modell
+  (RM pro+ oder RM4 pro) und welche Sender, ist nicht überliefert. Noch nicht gezielt gemessen: Lücke beim
+  Neu-Scharfschalten, ob die Sensorabfrage (0x01/0x24) den Lernmodus beendet.
 
 ## Offen / am echten Gerät prüfen
 
