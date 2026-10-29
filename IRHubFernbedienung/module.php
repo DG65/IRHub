@@ -464,7 +464,7 @@ class IRHubFernbedienung extends IPSModule
     {
         $info = $this->geraetInfo();
         $fach = [
-            ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📱  Kachel', 'items' => [
+            'kachel' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📱  Kachel', 'items' => [
                 ['type' => 'Label', 'caption' => 'Diese Instanz ist selbst eine Kachel für die Kachel-Visualisierung: ein Tastenfeld mit Ein/Aus, Lautstärke- und Programmwippe, Steuerkreuz, Ziffernblock und Szenen. Beim Vergrößern zeigt Symcon stattdessen die Variable „Befehl".'],
                 ['type' => 'Select', 'name' => 'Farbschema', 'caption' => 'Farben der Kachel', 'options' => [
                     ['caption' => 'automatisch (wie die Visualisierung)', 'value' => 0],
@@ -472,14 +472,14 @@ class IRHubFernbedienung extends IPSModule
                     ['caption' => 'dunkel', 'value' => 2],
                 ]],
             ]],
-            ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📡  Broadlink-Gerät', 'items' => [
+            'geraet' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📡  Broadlink-Gerät', 'items' => [
                 ['type' => 'Label', 'caption' => count($info) > 0
                     ? '🔗 Sendet über ' . IPS_GetName((int)IPS_GetInstance($this->InstanceID)['ConnectionID']) . ' (' . $info['modell'] . ($info['funk'] ? ', Infrarot und Funk' : ', nur Infrarot') . ')'
                     : '⛔ Kein erreichbares Broadlink-Gerät verbunden — unter „Gateway ändern" eine IRHub-Broadlink-Instanz wählen.'],
             ]],
         ];
         $aktionen = [
-            ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📥  Befehl lernen oder einfügen', 'items' => array_merge(
+            'lernen' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📥  Befehl lernen oder einfügen', 'items' => array_merge(
                 [
                     ['type' => 'Label', 'caption' => 'So geht\'s:  1. Namen eintragen  →  2. „Infrarot lernen" klicken  →  3. solange der Balken läuft (30 s), die Taste der Original-Fernbedienung aus 10–30 cm einmal kurz drücken  →  4. „Testen"  →  5. reagiert das Gerät: „Speichern", sonst „Verwerfen" und neu lernen.'],
                     ['type' => 'Label', 'caption' => 'Funk (nur Pro-Modelle):  „Frequenz suchen" klicken  →  Taste gedrückt halten, bis „Frequenz gefunden" erscheint  →  loslassen  →  einmal kurz drücken. Klappt die Suche nicht, die feste Frequenz wählen.', 'visible' => !empty($info['funk'])],
@@ -491,7 +491,7 @@ class IRHubFernbedienung extends IPSModule
                     ['type' => 'Button', 'caption' => '📋 Code unter diesem Namen speichern', 'onClick' => 'echo IRHUB_Importieren($id, $NeuerName, $ImportCode);'],
                 ]
             )],
-            ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎛️  Befehle', 'items' => [
+            'befehle' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎛️  Befehle', 'items' => [
                 ['type' => 'Label', 'caption' => 'Gruppe und Symbol bestimmen, wo und wie die Taste auf der Kachel erscheint. Leer = automatisch aus dem Namen (Spalte „Automatisch"). Zum Ändern doppelt auf die Zelle klicken; „nicht auf der Kachel" blendet die Taste aus.'],
                 ['type' => 'List', 'name' => 'BefehlListe', 'rowCount' => 10, 'add' => false, 'delete' => false,
                     'onEdit' => 'echo IRHUB_TasteAnpassen($id, $BefehlListe["name"], $BefehlListe["gruppe"], $BefehlListe["symbol"]);',
@@ -511,7 +511,7 @@ class IRHubFernbedienung extends IPSModule
                     ['type' => 'Button', 'caption' => '💾 Alle exportieren', 'onClick' => 'echo IRHUB_Exportieren($id);'],
                 ]],
             ]],
-            ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '✨  Szenen (Folgen als eigene Taste)', 'items' => [
+            'szenen' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '✨  Szenen (Folgen als eigene Taste)', 'items' => [
                 ['type' => 'Label', 'caption' => 'Eine Szene sendet mehrere Befehle nacheinander, z. B. „Filmabend" = „Ein, 2000, HDMI 1, Lauter, Lauter". Zahlen sind Pausen in Millisekunden. Jede Szene wird eine Taste auf der Kachel.'],
                 ['type' => 'RowLayout', 'items' => [
                     ['type' => 'ValidationTextBox', 'name' => 'SzeneName', 'caption' => 'Name der Szene'],

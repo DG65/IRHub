@@ -61,6 +61,14 @@
   (RM pro+ oder RM4 pro) und welche Sender, ist nicht überliefert. Noch nicht gezielt gemessen: Lücke beim
   Neu-Scharfschalten, ob die Sensorabfrage (0x01/0x24) den Lernmodus beendet.
 
+## Formular: Aufbau (0.7.0, SUITE.md 3a)
+
+- Im Trait `IRHubFormular::irhubFormular()`: Module übergeben Fachpanels und Aktions-Panels als Listen
+  Schlüssel => Panel. Ab drei einklappbaren Panels erscheint das Aufbau-Panel (Property `FormLayout`).
+- Aktions-Panels werden mitgesteuert, aber nur innerhalb von `actions` sortiert (mit EMS abgestimmt 29.10.).
+- Schlüssel sind eingefroren (Klima: kachel, quelle, smartir, umfang, laden, lernen, finden; Fernbedienung:
+  kachel, geraet, lernen, befehle, szenen; Broadlink: geraet, kinder, mitschnitt). Konfigurator hat nur 1 Panel.
+
 ## Offen / am echten Gerät prüfen
 
 - **Live 25.10.2026:** Dietmar hat IRHub in seinem Symcon installiert, alle Instanzen ließen sich fehlerfrei

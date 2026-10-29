@@ -5,7 +5,8 @@ declare(strict_types=1);
 // ===========================================================================
 // Gemeinsame Formular-Bausteine aller IRHub-Module nach der DG65-Formular-
 // Konvention: „Wozu dieses Modul?" → „Neu bis Version" → „Dokumentation &
-// Hilfe" → Fachpanels → Rückmeldungs-Hinweis → „Über dieses Modul".
+// Hilfe" → Fachpanels → „Formular: Aufbau" (SUITE.md 3a, ab drei Fachpanels) →
+// Rückmeldungs-Hinweis → „Über dieses Modul".
 //
 // Trait mit Modul-Präfix im Namen: Klassen- und Trait-Namen sind in Symcon
 // prozessweit global. Jedes Modul liefert über irhubPrefix() seinen Präfix,
@@ -24,6 +25,9 @@ trait IRHubFormular
         ],
         '0.1.1' => [
             '• Klimaanlage: Betriebsart „Lüften" auch bei Codetabellen, die sie „fan" nennen (z. B. Beko, Dimplex, Galanz).',
+        ],
+        '0.7.0' => [
+            '• 🪟 Neu: Formular-Aufbau selbst wählen — im Panel „Formular: Aufbau" je Bereich festlegen, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist und an welcher Stelle er steht.',
         ],
         '0.6.0' => [
             '• 📻 Funk-Mitschnitt (RM pro/pro+, RM4 pro): am Broadlink-Gerät einschalten — jedes empfangene Funksignal landet mit Datum und Uhrzeit im Protokoll und lässt sich mit einem Klick als Befehl in eine Fernbedienung übernehmen.',
@@ -67,6 +71,10 @@ trait IRHubFormular
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterAttributeBoolean('ForumHintGone', false);
+        // SUITE.md 3a: Aufklapp-Zustand und Reihenfolge der Fachpanels, Liste {Key, Panel, Opened, Closed, Hidden, Pos}.
+        $this->RegisterPropertyString('FormLayout', '[]');
+        // Standardliste fürs Zurücksetzen (wird bei jedem Formularaufbau neu geschrieben).
+        $this->RegisterAttributeString('FormLayoutStandard', '[]');
     }
 
     public function AckPurposeIntro(): void
@@ -201,13 +209,144 @@ trait IRHubFormular
     }
 
     /** Baut das komplette Formular aus Rahmen + Fachpanels. */
+    /**
+     * Baut das komplette Formular. $fachpanels und $aktionen sind Listen mit stabilem Schlüssel je
+     * Panel (Schlüssel => ExpansionPanel). Ab drei einklappbaren Fachpanels steuert „Formular: Aufbau"
+     * Aufklapp-Zustand, Ausblenden und Reihenfolge — Panels im Aktionsbereich nur innerhalb dieses
+     * Bereichs (Symcon zeigt ihn unterhalb von „Über dieses Modul"; verschoben wird nie zwischen beiden).
+     */
     protected function irhubFormular(array $fachpanels, array $aktionen, array $status): string
     {
+        $fachpanels = array_filter($fachpanels);
+        $aktionen = array_filter($aktionen);
+        $anzahl = count(array_filter($fachpanels, [self::class, 'einklappbar'])) + count(array_filter($aktionen, [self::class, 'einklappbar']));
+        $aufbau = null;
+        if ($anzahl > 2) {
+            // Standardliste in Standardreihenfolge: erst Einstellungen, dann Aktionsbereich.
+            $standard = [];
+            foreach ([[$fachpanels, ''], [$aktionen, ' (unten bei den Aktionen)']] as [$panels, $zusatz]) {
+                foreach ($panels as $key => $p) {
+                    if (self::einklappbar($p)) {
+                        $standard[] = ['Key' => (string)$key, 'Panel' => self::panelName((string)($p['caption'] ?? $key)) . $zusatz,
+                            'Opened' => false, 'Closed' => false, 'Hidden' => false, 'Pos' => count($standard) + 1];
+                    }
+                }
+            }
+            $this->WriteAttributeString('FormLayoutStandard', (string)json_encode($standard));
+            $gespeichert = self::layoutGespeichert((string)$this->ReadPropertyString('FormLayout'));
+            $standardPos = array_column($standard, 'Pos', 'Key');
+            $fachpanels = self::layoutAnwenden($fachpanels, $gespeichert, $standardPos);
+            $aktionen = self::layoutAnwenden($aktionen, $gespeichert, $standardPos);
+            $aufbau = $this->formAufbau($standard, $gespeichert);
+        }
         $elements = array_values(array_filter(array_merge(
             [$this->formZweck(), $this->formNeu(), $this->formDoku()],
-            $fachpanels,
-            [$this->formRueckmeldung(), $this->formLizenz()]
+            array_values($fachpanels),
+            [$aufbau, $this->formRueckmeldung(), $this->formLizenz()]
         )));
-        return (string)json_encode(['elements' => $elements, 'actions' => $aktionen, 'status' => $status]);
+        return (string)json_encode(['elements' => $elements, 'actions' => array_values($aktionen), 'status' => $status]);
     }
+
+    private static function einklappbar($p): bool
+    {
+        return is_array($p) && ($p['type'] ?? '') === 'ExpansionPanel';
+    }
+
+    private static function panelName(string $caption): string
+    {
+        return trim((string)preg_replace('/\s*\(.*$/u', '', $caption));
+    }
+
+    /** Gespeicherte Zeilen je Schlüssel: ['zustand' => std|open|closed|hidden, 'pos' => int|null]. */
+    private static function layoutGespeichert(string $json): array
+    {
+        $aus = [];
+        $liste = json_decode($json, true);
+        foreach (is_array($liste) ? $liste : [] as $z) {
+            if (!is_array($z) || !isset($z['Key'])) {
+                continue;
+            }
+            // Vorrang bei Widerspruch: ausgeblendet vor zugeklappt vor aufgeklappt, keiner = Standard.
+            $zustand = !empty($z['Hidden']) ? 'hidden' : (!empty($z['Closed']) ? 'closed' : (!empty($z['Opened']) ? 'open' : 'std'));
+            $aus[(string)$z['Key']] = ['zustand' => $zustand, 'pos' => isset($z['Pos']) ? max(1, min(99, (int)$z['Pos'])) : null];
+        }
+        return $aus;
+    }
+
+    /** Zustand und Reihenfolge anwenden; unbekannte Schlüssel bleiben auf Standard und Standardposition. */
+    private static function layoutAnwenden(array $panels, array $gespeichert, array $standardPos): array
+    {
+        $sortiert = [];
+        $i = 0;
+        foreach ($panels as $key => $p) {
+            $g = $gespeichert[(string)$key] ?? ['zustand' => 'std', 'pos' => null];
+            if (self::einklappbar($p)) {
+                if ($g['zustand'] === 'open') {
+                    $p['expanded'] = true;
+                } elseif ($g['zustand'] === 'closed') {
+                    $p['expanded'] = false;
+                } elseif ($g['zustand'] === 'hidden') {
+                    // Nie weglassen: die Felder bleiben im Formular, gespeicherte Werte bleiben beim „Übernehmen" erhalten.
+                    $p['visible'] = false;
+                }
+            }
+            $sortiert[] = ['pos' => $g['pos'] ?? ($standardPos[(string)$key] ?? 99), 'idx' => $i, 'key' => $key, 'panel' => $p];
+            $i++;
+        }
+        usort($sortiert, static function ($a, $b) {
+            return [$a['pos'], $a['idx']] <=> [$b['pos'], $b['idx']];
+        });
+        $aus = [];
+        foreach ($sortiert as $e) {
+            $aus[$e['key']] = $e['panel'];
+        }
+        return $aus;
+    }
+
+    private function formAufbau(array $standard, array $gespeichert): array
+    {
+        $zeilen = [];
+        $ausgeblendet = [];
+        foreach ($standard as $z) {
+            $g = $gespeichert[$z['Key']] ?? ['zustand' => 'std', 'pos' => null];
+            $zeilen[] = ['Key' => $z['Key'], 'Panel' => $z['Panel'], 'Opened' => $g['zustand'] === 'open', 'Closed' => $g['zustand'] === 'closed',
+                'Hidden' => $g['zustand'] === 'hidden', 'Pos' => $g['pos'] ?? $z['Pos']];
+            if ($g['zustand'] === 'hidden') {
+                $ausgeblendet[] = trim((string)preg_replace('/^[^\p{L}\p{N}]+/u', '', $z['Panel']));
+            }
+        }
+        $items = [];
+        if (count($ausgeblendet) > 0) {
+            $items[] = ['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $ausgeblendet) . ' — zum Wiederzeigen den Haken bei „Ausgeblendet" entfernen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.'];
+        }
+        $items[] = ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier bei jedem Öffnen — nach „Übernehmen" ab dem nächsten Öffnen des Formulars.'];
+        $items[] = ['type' => 'Label', 'caption' => 'Kein Haken heißt „Standard": so, wie das Modul es vorsieht. „Ausgeblendet" nimmt einen Bereich nur aus der Anzeige, seine Einstellungen bleiben erhalten und wirken weiter. Sind mehrere Haken gesetzt, gilt „Ausgeblendet" vor „Zugeklappt" vor „Aufgeklappt". Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. Bereiche „unten bei den Aktionen" stehen in Symcon unterhalb der Einstellungen und werden nur untereinander sortiert. Fest stehen oben „Wozu dieses Modul?", „Neu" und „Dokumentation & Hilfe", unten „Rückmeldungen" und „Über dieses Modul".'];
+        $items[] = [
+            'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($zeilen), 'add' => false, 'delete' => false,
+            'loadValuesFromConfiguration' => false,
+            'values' => $zeilen,
+            'columns' => [
+                ['caption' => 'Bereich', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                ['caption' => 'Schlüssel', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                ['caption' => 'Aufgeklappt', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                ['caption' => 'Zugeklappt', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                ['caption' => '🙈 Ausgeblendet', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
+            ],
+        ];
+        $items[] = ['type' => 'Button', 'caption' => '↩️ Auf Standard zurücksetzen', 'onClick' => 'echo ' . $this->irhubPrefix() . '_ResetFormLayout($id);'];
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => false,
+            'caption' => '🪟  Formular: Aufbau' . (count($ausgeblendet) > 0 ? ' (' . count($ausgeblendet) . ' ausgeblendet)' : ''),
+            'items' => $items,
+        ];
+    }
+
+    /** Setzt den Aufbau im offenen Formular auf Standard (gilt erst nach „Übernehmen", keine Selbstpersistenz). */
+    public function ResetFormLayout(): string
+    {
+        $this->UpdateFormField('FormLayout', 'values', (string)$this->ReadAttributeString('FormLayoutStandard'));
+        return 'ℹ️ Auf Standard gesetzt. Zum Speichern unten „Übernehmen" klicken.';
+    }
+
 }

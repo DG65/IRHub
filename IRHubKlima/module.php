@@ -699,7 +699,7 @@ class IRHubKlima extends IPSModule
         [, $raumQuelle] = $this->raumQuelle();
         $raumFeld = ['type' => 'SelectVariable', 'name' => 'RaumTemperaturID', 'caption' => 'Temperaturvariable des Raums (optional)', 'width' => '500px'];
         $fach = [
-            ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📱  Kachel und Raumtemperatur', 'items' => [
+            'kachel' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📱  Kachel und Raumtemperatur', 'items' => [
                 ['type' => 'Label', 'caption' => 'Diese Instanz ist selbst eine Kachel für die Kachel-Visualisierung: Solltemperatur mit −/+, Ein/Aus, Betriebsart, Lüfter und die Raumtemperatur zum Vergleich.'],
                 ['type' => 'Label', 'caption' => $raumText, 'color' => $raumFarbe],
                 // Kommt der Wert automatisch, wird das Feld nicht gezeigt, sondern nur als bewusstes Überschreiben angeboten.
@@ -712,7 +712,7 @@ class IRHubKlima extends IPSModule
                     ['caption' => 'dunkel', 'value' => 2],
                 ]],
             ]],
-            ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '❄️  Codequelle', 'items' => [
+            'quelle' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '❄️  Codequelle', 'items' => [
                 ['type' => 'Select', 'name' => 'Quelle', 'caption' => 'Woher kommen die Codes?', 'options' => [
                     ['caption' => 'Selbst gelernte Codes (geht mit jeder Anlage)', 'value' => 'gelernt'],
                     ['caption' => 'Codetabelle (SmartIR) für mein Modell', 'value' => 'smartir'],
@@ -721,11 +721,11 @@ class IRHubKlima extends IPSModule
                     . ($tab['quelle'] === 'SmartIR' ? ' (Tabelle ' . trim($tab['hersteller'] . ' ' . implode(', ', $tab['modelle'])) . ')' : '')
                     . ' — ' . count($tab['betriebsarten']) . ' Betriebsarten, ' . count($tab['luefter']) . ' Lüfterstufen, ' . $this->zahl($tab['minTemp']) . '–' . $this->zahl($tab['maxTemp']) . ' °C.'],
             ]],
-            ['type' => 'ExpansionPanel', 'expanded' => $smartir, 'caption' => '📚  Codetabelle (SmartIR)', 'items' => [
+            'smartir' => ['type' => 'ExpansionPanel', 'expanded' => $smartir, 'caption' => '📚  Codetabelle (SmartIR)', 'items' => [
                 ['type' => 'Select', 'name' => 'SmartIRNr', 'caption' => 'Modell', 'options' => $modelle, 'width' => '700px'],
                 ['type' => 'Label', 'caption' => 'ℹ️ Modell nicht dabei? Viele Anlagen sind baugleich mit Midea, Gree oder anderen großen Herstellern — ausprobieren schadet nicht. Sonst selbst lernen.'],
             ]],
-            ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => '🎓  Selbst lernen: Umfang', 'items' => [
+            'umfang' => ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => '🎓  Selbst lernen: Umfang', 'items' => [
                 ['type' => 'ValidationTextBox', 'name' => 'Betriebsarten', 'caption' => 'Betriebsarten (' . implode(', ', $modusOptionen) . ')', 'width' => '700px'],
                 ['type' => 'ValidationTextBox', 'name' => 'Luefter', 'caption' => 'Lüfterstufen (z. B. auto oder low, mid, high, auto)'],
                 ['type' => 'RowLayout', 'items' => [
@@ -738,13 +738,13 @@ class IRHubKlima extends IPSModule
         ];
         $aktionen = [];
         if ($smartir) {
-            $aktionen[] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📚  Codetabelle laden', 'items' => [
+            $aktionen['laden'] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📚  Codetabelle laden', 'items' => [
                 ['type' => 'Button', 'caption' => '⬇️ Codetabelle von GitHub laden', 'onClick' => 'echo IRKLIMA_TabelleLaden($id);'],
                 ['type' => 'SelectFile', 'name' => 'TabellenDatei', 'caption' => 'oder SmartIR-JSON-Datei hochladen', 'extensions' => '.json'],
                 ['type' => 'Button', 'caption' => '📤 Datei übernehmen', 'onClick' => 'echo IRKLIMA_TabelleHochladen($id, $TabellenDatei);'],
             ]];
         } else {
-            $aktionen[] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎓  Codes lernen', 'items' => array_merge(
+            $aktionen['lernen'] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎓  Codes lernen', 'items' => array_merge(
                 [
                     ['type' => 'Label', 'caption' => 'So geht\'s:  1. Die Zeile „Als Nächstes" nennt den Zustand  →  2. genau diesen an der Original-Fernbedienung einstellen  →  3. „Infrarot lernen" klicken  →  4. solange der Balken läuft (30 s), eine Taste drücken, die diesen Zustand sendet  →  5. „Testen"  →  6. „Speichern" — danach geht es automatisch mit dem nächsten Zustand weiter.'],
                     ['type' => 'Label', 'name' => 'ZielZeile', 'caption' => $this->zielText()],
@@ -769,7 +769,7 @@ class IRHubKlima extends IPSModule
         }
         $analyse = json_decode((string)$this->ReadAttributeString('Analyse'), true);
         $vorschlaege = (array)($analyse['vorschlaege'] ?? []);
-        $aktionen[] = ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => '🔍  Passende Codetabelle finden', 'items' => [
+        $aktionen['finden'] = ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => '🔍  Passende Codetabelle finden', 'items' => [
             ['type' => 'Label', 'caption' => 'Ein einziger Code deiner Anlage genügt: nach dem Lernen prüft IRHub automatisch, welches Protokoll sie spricht und welche Codetabellen dazu passen. Ein vorhandener Code (z. B. aus ioBroker oder Home Assistant) lässt sich auch einfügen.'],
             ['type' => 'ValidationTextBox', 'name' => 'AnalyseCode', 'caption' => 'Vorhandener Code (Hex, Base64, Pronto)', 'width' => '700px'],
             ['type' => 'Button', 'caption' => '🔍 Code analysieren', 'onClick' => 'echo IRKLIMA_CodeAnalysieren($id, $AnalyseCode);'],

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0 (29.10.2026)
+
+- „🪟 Formular: Aufbau" (Verbund-Konvention SUITE.md 3a) in Broadlink-Gerät, Fernbedienung und Klimaanlage: je Bereich aufgeklappt, zugeklappt oder ausgeblendet und Position wählbar; Bereiche im Aktionsbereich werden innerhalb dieses Bereichs sortiert; „Auf Standard zurücksetzen".
+
 ## 0.6.0 (28.10.2026)
 
 - Funk-Mitschnitt am Broadlink-Gerät (RM pro/pro+, RM4 pro, Standard aus): empfangene Funksignale mit Datum, Uhrzeit, Frequenz, Pulsfolge und Wiederholungen protokollieren; Eintrag direkt in eine Fernbedienung übernehmen; bekannte Signale werden erkannt (Variable „Erkanntes Funksignal" als Auslöser). Pausiert automatisch, während eine Fernbedienung lernt.

@@ -162,7 +162,7 @@ class IRHubKonfigurator extends IPSModule
     {
         $funde = $this->funde();
         $fach = [
-            ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🔎  Geräte suchen', 'items' => [
+            'suche' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🔎  Geräte suchen', 'items' => [
                 ['type' => 'Label', 'name' => 'SuchZeile', 'caption' => $this->suchZeile($funde)],
                 ['type' => 'Button', 'caption' => '🔎 Jetzt suchen', 'onClick' => 'echo IRCFG_Suchen($id);'],
                 ['type' => 'ValidationTextBox', 'name' => 'Suchadressen', 'caption' => 'Zusätzliche Suchadressen (IP oder Netz-Broadcast, durch Komma getrennt)', 'width' => '600px'],

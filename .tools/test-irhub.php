@@ -980,6 +980,63 @@ foreach ([$fb, $kl] as $id) {
     pruef("$klasse: Schrittfolge erklärt", strpos($json, 'So geht') !== false);
 }
 
+// Formular: Aufbau (SUITE.md 3a)
+abschnitt('Formular: Aufbau');
+$titelVon = static function (array $liste): array {
+    return array_map(static function ($e) { return (string)($e['caption'] ?? ''); }, $liste);
+};
+$fKonf = json_decode($GLOBALS['INST'][$cfg]->GetConfigurationForm(), true);
+pruef('Konfigurator (1 Fachpanel) ohne Aufbau-Panel', !in_array(true, array_map(static function ($t) { return strpos($t, 'Formular: Aufbau') !== false; }, $titelVon($fKonf['elements'])), true));
+foreach ([$bl, $fb, $kl] as $id) {
+    $m = $GLOBALS['INST'][$id];
+    $f = json_decode($m->GetConfigurationForm(), true);
+    $t = $titelVon($f['elements']);
+    $i = array_search('🪟  Formular: Aufbau', $t, true);
+    pruef(get_class($m) . ': Aufbau-Panel direkt vor Rückmeldungen/Über, eingeklappt', $i !== false && strpos($t[count($t) - 1], 'Über dieses Modul') !== false && $f['elements'][$i]['expanded'] === false && $i >= count($t) - 3);
+}
+// Fernbedienung: Standardliste enthält auch die Aktions-Panels, gekennzeichnet
+$F->props['FormLayout'] = '[]';
+$f = json_decode($F->GetConfigurationForm(), true);
+$std = json_decode($F->ReadAttributeStringOeffentlich('FormLayoutStandard'), true);
+pruef('Standardliste: 5 Bereiche, Aktionen gekennzeichnet', count($std) === 5 && array_column($std, 'Key') === ['kachel', 'geraet', 'lernen', 'befehle', 'szenen'] && strpos($std[2]['Panel'], '(unten bei den Aktionen)') !== false && strpos($std[0]['Panel'], '(unten') === false);
+$ohne = $titelVon($f['actions']);
+pruef('Standard: Aktionsreihenfolge Lernen, Befehle, Szenen', strpos($ohne[0], 'Befehl lernen') !== false && strpos($ohne[2], 'Szenen') !== false);
+$F->props['FormLayout'] = json_encode([
+    ['Key' => 'kachel', 'Hidden' => true, 'Opened' => true, 'Pos' => 1],   // Widerspruch: ausgeblendet gewinnt
+    ['Key' => 'geraet', 'Opened' => true, 'Pos' => 2],
+    ['Key' => 'lernen', 'Closed' => true, 'Opened' => true, 'Pos' => 5],   // zugeklappt vor aufgeklappt
+    ['Key' => 'szenen', 'Pos' => 1],                                      // nach vorn, aber nur innerhalb der Aktionen
+    ['Key' => 'gibtsnicht', 'Hidden' => true, 'Pos' => 1],                // unbekannt: ignoriert
+]);
+$f = json_decode($F->GetConfigurationForm(), true);
+$el = [];
+foreach ($f['elements'] as $e) { $el[(string)($e['caption'] ?? '')] = $e; }
+$ak = [];
+foreach ($f['actions'] as $e) { $ak[(string)$e['caption']] = $e; }
+pruef('Ausgeblendet = visible:false, Panel bleibt im Formular', ($el['📱  Kachel']['visible'] ?? true) === false);
+pruef('Aufgeklappt gewählt', ($el['📡  Broadlink-Gerät']['expanded'] ?? false) === true);
+pruef('Zugeklappt vor Aufgeklappt', ($ak['📥  Befehl lernen oder einfügen']['expanded'] ?? true) === false);
+$at = $titelVon($f['actions']);
+pruef('Position wirkt innerhalb der Aktionen: Szenen zuerst', strpos($at[0], 'Szenen') !== false && strpos($at[1], 'Befehle') !== false && strpos($at[2], 'Befehl lernen') !== false, json_encode($at, JSON_UNESCAPED_UNICODE));
+pruef('Nicht genannter Bereich (Befehle) bleibt Standard', !isset($ak['🎛️  Befehle']['visible']) && ($ak['🎛️  Befehle']['expanded'] ?? null) === true);
+$t = $titelVon($f['elements']);
+pruef('Kein Verschieben zwischen Einstellungen und Aktionen', count($f['actions']) === 3 && !in_array('✨  Szenen (Folgen als eigene Taste)', $t, true));
+pruef('Caption nennt Zahl ausgeblendeter Bereiche', in_array('🪟  Formular: Aufbau (1 ausgeblendet)', $t, true));
+$aufbau = array_values(array_filter($f['elements'], static function ($e) { return strpos((string)($e['caption'] ?? ''), 'Formular: Aufbau') !== false; }))[0];
+$liste = array_values(array_filter($aufbau['items'], static function ($e) { return ($e['name'] ?? '') === 'FormLayout'; }))[0];
+pruef('Liste zeigt gespeicherte Haken, Key-Spalte unsichtbar mit save', $liste['values'][0]['Hidden'] === true && $liste['values'][2]['Closed'] === true && $liste['columns'][1]['name'] === 'Key' && $liste['columns'][1]['save'] === true && $liste['columns'][1]['visible'] === false && $liste['loadValuesFromConfiguration'] === false);
+pruef('Liste nennt die ausgeblendeten Bereiche', strpos($aufbau['items'][0]['caption'], '🙈 Ausgeblendet: Kachel') === 0);
+$text = $F->ResetFormLayout();
+$zurueck = json_decode($GLOBALS['FORM'][$fb]['FormLayout']['values'], true);
+pruef('Zurücksetzen: nur Formularfeld, Property unverändert, Hinweis auf Übernehmen', strpos($text, 'Übernehmen') !== false && count($zurueck) === 5 && !in_array(true, array_merge(array_column($zurueck, 'Hidden'), array_column($zurueck, 'Opened'), array_column($zurueck, 'Closed')), true) && strpos($F->props['FormLayout'], 'kachel') !== false);
+$F->props['FormLayout'] = '[]';
+// Klima: Bereiche je nach Codequelle — unbekannte/fehlende Schlüssel fallen auf Standard
+$KL->props['FormLayout'] = json_encode([['Key' => 'laden', 'Hidden' => true]]);
+$KL->props['Quelle'] = 'gelernt';
+$f = json_decode($KL->GetConfigurationForm(), true);
+pruef('Klima: Schlüssel eines gerade nicht gezeigten Panels stört nicht', count($f['actions']) === 2 && !in_array(false, array_map(static function ($e) { return $e['visible'] ?? true; }, $f['actions']), true));
+$KL->props['FormLayout'] = '[]';
+
 // Presentation-Schlüssel und Aufzählung nur mit Aktion (Stolperstein 9, Nachtrag 25.10.2026)
 foreach ([$bl, $fb, $kl] as $id) {
     foreach ($GLOBALS['INST'][$id]->vars as $ident => $v) {

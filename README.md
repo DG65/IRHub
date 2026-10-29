@@ -1,7 +1,7 @@
 # IRHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul-0.6.0-informational)
+![Modul Version](https://img.shields.io/badge/Modul-0.7.0-informational)
 ![Symcon Version](https://img.shields.io/badge/Symcon-9.0%2B-informational)
 ![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-orange)
 [![Check Style](https://github.com/DG65/IRHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/IRHub/actions/workflows/check-style.yml)
@@ -115,6 +115,13 @@ IRKLIMA_Wiederholen($id);                          // letzten Zustand erneut sen
 ## Fragen und Rückmeldungen
 
 Im [IRHub-Thread im Symcon-Forum](https://community.symcon.de/t/beta-modul-irhub-broadlink-fernbedienungen-und-klimaanlagen-lokal-in-ip-symcon-rm-mini-rm-pro-rm4/144771) oder als [GitHub-Issue](https://github.com/DG65/IRHub/issues).
+
+## Formular-Aufbau
+
+Broadlink-Gerät, Fernbedienung und Klimaanlage haben das Panel „🪟 Formular: Aufbau": Dort legt
+man je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist und an welcher
+Stelle er steht. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt. Bereiche im unteren
+Aktionsbereich des Formulars werden nur untereinander sortiert.
 
 ## Grundlagen und Dank
 

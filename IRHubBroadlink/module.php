@@ -612,7 +612,7 @@ class IRHubBroadlink extends IPSModule
             }
         }
         $fach = [
-            ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📡  Gerät', 'items' => [
+            'geraet' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📡  Gerät', 'items' => [
                 ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse des Broadlink-Geräts'],
                 ['type' => 'Label', 'name' => 'StatusZeile', 'caption' => $this->statusZeile()],
                 ['type' => 'RowLayout', 'items' => [
@@ -625,7 +625,7 @@ class IRHubBroadlink extends IPSModule
                     ['type' => 'NumberSpinner', 'name' => 'MitschnittMHz', 'caption' => 'auf', 'suffix' => 'MHz', 'digits' => 2, 'minimum' => 300, 'maximum' => 450],
                 ]],
             ]],
-            ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎛️  Fernbedienungen und Klimaanlagen', 'items' => [
+            'kinder' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎛️  Fernbedienungen und Klimaanlagen', 'items' => [
                 ['type' => 'Label', 'caption' => count($kinder) === 0 ? 'ℹ️ Noch keine Instanz an diesem Gerät.' : '🔗 Verbunden: ' . implode(', ', $kinder)],
                 ['type' => 'RowLayout', 'items' => [
                     ['type' => 'Button', 'caption' => '➕ Fernbedienung anlegen', 'onClick' => 'echo IRBL_KindAnlegen($id, "fernbedienung");'],
@@ -645,7 +645,7 @@ class IRHubBroadlink extends IPSModule
             $ziele[] = ['caption' => $fname . ' (#' . $fid . ')', 'value' => $fid];
         }
         $aktionen = [
-            ['type' => 'ExpansionPanel', 'expanded' => $this->ReadPropertyBoolean('Mitschnitt'), 'caption' => '📻  Funk-Mitschnitt', 'items' => [
+            'mitschnitt' => ['type' => 'ExpansionPanel', 'expanded' => $this->ReadPropertyBoolean('Mitschnitt'), 'caption' => '📻  Funk-Mitschnitt', 'items' => [
                 ['type' => 'Label', 'caption' => 'Der Mitschnitt hält den Broadlink ständig empfangsbereit und schreibt jedes Funksignal mit Datum und Uhrzeit ins Protokoll — z. B. Handsender, Funkklingel oder Fernbedienungen, deren Taste man nicht extra lernen will. Ein Eintrag lässt sich direkt als Befehl in eine Fernbedienung übernehmen. Signale, die schon gelernt sind, werden erkannt.'],
                 ['type' => 'Label', 'caption' => 'Hinweis: Solange der Mitschnitt läuft, ist der Broadlink im Lernmodus (die Leuchte kann dauerhaft an sein). Lernt oder sendet eine Fernbedienung, pausiert er kurz. Wechselcode-Sender (z. B. Somfy RTS, moderne Garagentore) lassen sich protokollieren, aber nicht sinnvoll nachsenden.'],
                 ['type' => 'Label', 'name' => 'MitschnittZeile', 'caption' => $this->mitschnittZeile()],
