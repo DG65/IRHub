@@ -61,6 +61,16 @@
   (RM pro+ oder RM4 pro) und welche Sender, ist nicht überliefert. Noch nicht gezielt gemessen: Lücke beim
   Neu-Scharfschalten, ob die Sensorabfrage (0x01/0x24) den Lernmodus beendet.
 
+## Sender-Erkennung und Export (0.8.0)
+
+- `IRHubCode::funkBits()`: Rahmen an langen Pausen trennen, Pulsbreiten-Paare zu Bits, häufigste Länge und
+  Bitfolge. `funkSender()`: 24 Bit → Adresse Bit 0–15; 60–70 Bit → KeeLoq-Bauart, Seriennummer Bit 32–59;
+  sonst vordere zwei Drittel. Sender-Nummern im Attribut `FunkSender` (bleiben stabil, Leeren setzt zurück).
+- **Nur synthetische Signale geprüft**, an echten Sendern unbewiesen. Grenzen: gleiche DIP-Adresse fällt zusammen,
+  andere Kodierungen (Manchester) = „nicht lesbar", Bit-Aufteilung ist Heuristik.
+- `aehnlich()` vergleicht jetzt Bits, wenn beide lesbar sind (vorher galten Tasten mit 1–2 Bits Unterschied als gleich).
+- Export per Button `download` + Data-URL (SDK ab 7.0, in echter Konsole noch nicht geklickt). Klima-Codes haben keinen Export.
+
 ## Formular: Aufbau (0.7.0, SUITE.md 3a)
 
 - Im Trait `IRHubFormular::irhubFormular()`: Module übergeben Fachpanels und Aktions-Panels als Listen

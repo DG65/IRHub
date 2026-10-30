@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0 (30.10.2026)
+
+- Funk-Mitschnitt erkennt Sender: Festcode-Signale werden in Bits zerlegt und über ihre Adresse einem Sender zugeordnet (Sender und Taste in der Liste, Übersicht darüber; Schätzung).
+- Export als Datei: Funk-Protokoll als CSV oder JSON, gelernte Befehle als CSV oder JSON; Befehls-JSON lässt sich wieder einlesen.
+- Fehler behoben: Zwei Tasten eines Senders mit wenigen Bits Unterschied galten als dasselbe Signal (falsche Wiederholung, falsche Erkennung).
+
 ## 0.7.0 (29.10.2026)
 
 - „🪟 Formular: Aufbau" (Verbund-Konvention SUITE.md 3a) in Broadlink-Gerät, Fernbedienung und Klimaanlage: je Bereich aufgeklappt, zugeklappt oder ausgeblendet und Position wählbar; Bereiche im Aktionsbereich werden innerhalb dieses Bereichs sortiert; „Auf Standard zurücksetzen".

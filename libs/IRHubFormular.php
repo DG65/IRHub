@@ -26,6 +26,11 @@ trait IRHubFormular
         '0.1.1' => [
             '• Klimaanlage: Betriebsart „Lüften" auch bei Codetabellen, die sie „fan" nennen (z. B. Beko, Dimplex, Galanz).',
         ],
+        '0.8.0' => [
+            '• 📡 Funk-Mitschnitt erkennt Sender: Die Liste zeigt „Sender 1 · Taste 01", Tasten derselben Fernbedienung haben dieselbe Nummer (Schätzung aus der Adresse im Signal).',
+            '• 💾 Export als Datei: Funk-Protokoll und gelernte Befehle als CSV oder JSON. Die Befehls-JSON lässt sich wieder einlesen.',
+            '• Behoben: Zwei Tasten eines Senders mit wenigen Bits Unterschied galten als dasselbe Signal.',
+        ],
         '0.7.0' => [
             '• 🪟 Neu: Formular-Aufbau selbst wählen — im Panel „Formular: Aufbau" je Bereich festlegen, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist und an welcher Stelle er steht.',
         ],

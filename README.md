@@ -1,7 +1,7 @@
 # IRHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul-0.7.0-informational)
+![Modul Version](https://img.shields.io/badge/Modul-0.8.0-informational)
 ![Symcon Version](https://img.shields.io/badge/Symcon-9.0%2B-informational)
 ![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-orange)
 [![Check Style](https://github.com/DG65/IRHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/IRHub/actions/workflows/check-style.yml)
@@ -76,6 +76,16 @@ Taste ist ein Eintrag mit Zähler). Ein Eintrag lässt sich mit einem Klick als 
 Fernbedienung übernehmen — Lernen ohne Lernknopf. Signale, die schon als Befehl gelernt sind,
 werden erkannt; die Variable „Erkanntes Funksignal" taugt als Auslöser für Ereignisse
 (z. B. Funkklingel → Push-Nachricht).
+
+**Sender erkennen:** IRHub liest aus Festcode-Signalen die Bits und ordnet sie über die Adresse im
+Signal einem Sender zu („Sender 1 · Taste 01"). Tasten derselben Fernbedienung haben dieselbe
+Sender-Nummer. Das ist eine Schätzung: Sender mit gleich eingestellter Adresse (DIP-Schalter) fallen
+zusammen, Signale mit anderer Kodierung erscheinen als „nicht lesbar", Signale der KeeLoq-Bauart
+als „Wechselcode?".
+
+**Export:** Das Protokoll lässt sich als CSV (für Excel) oder JSON herunterladen, die gelernten
+Befehle einer Fernbedienung ebenso. Die JSON-Datei der Befehle (`{"Name": "Code"}`) lässt sich wieder
+einlesen; Gruppe, Symbol und Szenen sind darin nicht enthalten.
 
 Ein Broadlink empfängt nur im Lernmodus und hält dort genau ein Signal. Der Mitschnitt schaltet
 ihn deshalb fortlaufend scharf; die Leuchte kann dabei dauerhaft an sein. Lernt oder sendet eine

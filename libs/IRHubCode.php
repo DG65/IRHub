@@ -260,14 +260,150 @@ class IRHubCode
     }
 
     /**
-     * Sind zwei Aufnahmen dasselbe Signal? Gelernte Codes schwanken in den Zeiten und in der
-     * Zahl der Wiederholungen. Verglichen werden deshalb die ersten 48 Pulse: mindestens 90 %
-     * davon dürfen höchstens um den Faktor 1,6 voneinander abweichen.
+     * Festcode-Funksignal in Bits zerlegen (Pulsbreiten-Kodierung, z. B. EV1527, PT2262, KeeLoq).
+     * Ein Signal besteht aus mehreren Wiederholungen, getrennt durch lange Pausen. Gewertet wird die
+     * häufigste Rahmenlänge und darin die häufigste Bitfolge. Rückgabe: ['bits' => '0101…', 'basis' => µs]
+     * oder null, wenn das Signal nicht so aufgebaut ist (z. B. Manchester-Kodierung).
+     */
+    public static function funkBits(string $paket): ?array
+    {
+        if (!self::istFunk($paket)) {
+            return null;
+        }
+        $pulse = self::paketZuPulse($paket);
+        if (count($pulse) < 16) {
+            return null;
+        }
+        $sortiert = $pulse;
+        sort($sortiert);
+        $grenze = max(2000, 4 * $sortiert[intdiv(count($sortiert), 2)]);
+        $rahmen = [[]];
+        foreach ($pulse as $p) {
+            if ($p > $grenze) {
+                $rahmen[] = [];
+            } else {
+                $rahmen[count($rahmen) - 1][] = $p;
+            }
+        }
+        $gelesen = [];
+        foreach ($rahmen as $r) {
+            $e = self::rahmenBits($r);
+            if ($e !== null) {
+                $gelesen[] = $e;
+            }
+        }
+        if (count($gelesen) === 0) {
+            return null;
+        }
+        $laengen = array_count_values(array_map(static function ($e) {
+            return strlen($e['bits']);
+        }, $gelesen));
+        arsort($laengen);
+        $laenge = (int)array_key_first($laengen);
+        $passend = array_values(array_filter($gelesen, static function ($e) use ($laenge) {
+            return strlen($e['bits']) === $laenge;
+        }));
+        $folgen = array_count_values(array_column($passend, 'bits'));
+        arsort($folgen);
+        $bits = (string)array_key_first($folgen);
+        $basis = array_column($passend, 'basis');
+        sort($basis);
+        return ['bits' => $bits, 'basis' => $basis[intdiv(count($basis), 2)]];
+    }
+
+    private static function rahmenBits(array $r): ?array
+    {
+        if (count($r) < 16) {
+            return null;
+        }
+        $min = min($r);
+        $max = max($r);
+        if ($max < 1.6 * $min) {
+            return null; // nur eine Pulslänge: Vorspann, keine Daten
+        }
+        $schwelle = ($min + $max) / 2;
+        $bits = '';
+        $falsch = 0;
+        $kurze = [];
+        for ($i = 0; $i + 1 < count($r); $i += 2) {
+            $a = $r[$i] > $schwelle;
+            $b = $r[$i + 1] > $schwelle;
+            if ($a === $b) {
+                $falsch++;
+                continue;
+            }
+            $bits .= $a ? '1' : '0';
+            $kurze[] = $a ? $r[$i + 1] : $r[$i];
+        }
+        if (strlen($bits) < 12 || $falsch > 0.1 * (strlen($bits) + $falsch)) {
+            return null;
+        }
+        sort($kurze);
+        return ['bits' => $bits, 'basis' => $kurze[intdiv(count($kurze), 2)]];
+    }
+
+    /**
+     * Sender-Kennung aus den Bits. Tasten eines Senders teilen sich die Adresse, nur die Tastenbits
+     * unterscheiden sich:
+     *   24 Bit (EV1527, PT2262):   Bit 0–15 Adresse, Rest Taste
+     *   60–70 Bit (KeeLoq-Bauart): Bit 0–31 Wechselcode, Bit 32–59 Seriennummer, ab 60 Taste
+     *   sonst:                     vorderes Zwei-Drittel Adresse (Annäherung)
+     * Rückgabe: ['adresse' => Bits, 'taste' => Hex, 'wechselcode' => bool].
+     */
+    public static function funkSender(string $bits): array
+    {
+        $n = strlen($bits);
+        if ($n >= 60 && $n <= 70) {
+            return ['adresse' => substr($bits, 32, 28), 'taste' => self::bitsHex((string)substr($bits, 60)), 'wechselcode' => true];
+        }
+        $vorn = $n === 24 ? 16 : intdiv(2 * $n, 3);
+        return ['adresse' => substr($bits, 0, $vorn), 'taste' => self::bitsHex((string)substr($bits, $vorn)), 'wechselcode' => false];
+    }
+
+    private static function bitsHex(string $bits): string
+    {
+        if ($bits === '') {
+            return '';
+        }
+        $hex = '';
+        foreach (str_split(str_pad($bits, (int)(ceil(strlen($bits) / 4) * 4), '0', STR_PAD_LEFT), 4) as $teil) {
+            $hex .= dechex((int)bindec($teil));
+        }
+        return strtoupper($hex);
+    }
+
+    /** Text als Data-URL für einen Formular-Knopf mit „download". */
+    public static function datenUrl(string $inhalt, string $typ): string
+    {
+        return 'data:' . $typ . ';charset=utf-8;base64,' . base64_encode($inhalt);
+    }
+
+    /** Zeilen als CSV für deutsches Excel: Semikolon, UTF-8 mit BOM, Felder in Anführungszeichen. */
+    public static function csv(array $zeilen): string
+    {
+        $aus = "\xEF\xBB\xBF";
+        foreach ($zeilen as $zeile) {
+            $aus .= implode(';', array_map(static function ($feld) {
+                return '"' . str_replace('"', '""', (string)$feld) . '"';
+            }, $zeile)) . "\r\n";
+        }
+        return $aus;
+    }
+
+    /**
+     * Sind zwei Aufnahmen dasselbe Signal? Lassen sich beide in Bits zerlegen, entscheiden die Bits
+     * (zwei Tasten eines Senders unterscheiden sich oft nur in ein bis zwei Bits). Sonst Vergleich der
+     * ersten 48 Pulse: mindestens 90 % davon dürfen höchstens um den Faktor 1,6 abweichen.
      */
     public static function aehnlich(string $a, string $b): bool
     {
         if (self::istFunk($a) !== self::istFunk($b)) {
             return false;
+        }
+        $ba = self::funkBits($a);
+        $bb = self::funkBits($b);
+        if ($ba !== null && $bb !== null) {
+            return $ba['bits'] === $bb['bits'];
         }
         $pa = self::paketZuPulse($a);
         $pb = self::paketZuPulse($b);

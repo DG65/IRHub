@@ -309,6 +309,30 @@ class IRHubFernbedienung extends IPSModule
         return (string)json_encode($aus, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
+    /** Alle Befehle als Datei: $Format 'json' (wieder importierbar) oder 'csv'. Rückgabe: Data-URL für den Download-Knopf. */
+    public function BefehleExport(string $Format): string
+    {
+        if ($Format === 'json') {
+            return IRHubCode::datenUrl($this->Exportieren(), 'application/json');
+        }
+        $zeilen = [['Name', 'Signal', 'Gruppe', 'Symbol', 'Pulsfolge (µs)', 'Code (Base64)']];
+        foreach ($this->befehle() as $b) {
+            $paket = IRHubCode::ausBase64($b['code']);
+            $zeilen[] = [$b['name'], IRHubCode::beschreibung($paket), (string)($b['gruppe'] ?? ''), (string)($b['symbol'] ?? ''), implode(' ', IRHubCode::paketZuPulse($paket)), $b['code']];
+        }
+        return IRHubCode::datenUrl(IRHubCode::csv($zeilen), 'text/csv');
+    }
+
+    /** Exportierte JSON-Datei wieder einlesen (SelectFile liefert Base64). */
+    public function BefehleImportDatei(string $DateiBase64): string
+    {
+        $json = base64_decode($DateiBase64, true);
+        if (!is_string($json) || $json === '') {
+            return 'ℹ️ Bitte zuerst eine Datei auswählen.';
+        }
+        return $this->ImportierenJSON($json);
+    }
+
     /** Befehle aus einem JSON {Name: Code} übernehmen (z. B. Home-Assistant-Codedatei eines Geräts). */
     public function ImportierenJSON(string $JSON): string
     {
@@ -328,10 +352,18 @@ class IRHubFernbedienung extends IPSModule
                 $schlecht[] = (string)$name;
                 continue;
             }
-            $liste = array_values(array_filter($liste, static function ($b) use ($name) {
-                return $b['name'] !== (string)$name;
-            }));
-            $liste[] = ['name' => (string)$name, 'code' => IRHubCode::base64($e['paket'])];
+            // Vorhandener Befehl: nur den Code ersetzen, Gruppe und Symbol bleiben erhalten.
+            $vorhanden = false;
+            foreach ($liste as &$b) {
+                if ($b['name'] === (string)$name) {
+                    $b['code'] = IRHubCode::base64($e['paket']);
+                    $vorhanden = true;
+                }
+            }
+            unset($b);
+            if (!$vorhanden) {
+                $liste[] = ['name' => (string)$name, 'code' => IRHubCode::base64($e['paket'])];
+            }
             $gut++;
         }
         $this->befehleSchreiben($liste);
@@ -508,7 +540,12 @@ class IRHubFernbedienung extends IPSModule
                     ['type' => 'Button', 'caption' => '▶️ Senden', 'onClick' => 'echo IRHUB_SendenTesten($id, $BefehlListe["name"]);'],
                     ['type' => 'Button', 'caption' => '✏️ Umbenennen (Name oben)', 'onClick' => 'echo IRHUB_Umbenennen($id, $BefehlListe["name"], $NeuerName);'],
                     ['type' => 'Button', 'caption' => '🗑 Löschen', 'confirm' => 'Befehl wirklich löschen?', 'onClick' => 'echo IRHUB_Loeschen($id, $BefehlListe["name"]);'],
-                    ['type' => 'Button', 'caption' => '💾 Alle exportieren', 'onClick' => 'echo IRHUB_Exportieren($id);'],
+                ]],
+                ['type' => 'RowLayout', 'items' => [
+                    ['type' => 'Button', 'caption' => '💾 Alle als JSON exportieren', 'download' => 'IRHub-Befehle.json', 'onClick' => 'echo IRHUB_BefehleExport($id, "json");'],
+                    ['type' => 'Button', 'caption' => '📄 Alle als CSV exportieren', 'download' => 'IRHub-Befehle.csv', 'onClick' => 'echo IRHUB_BefehleExport($id, "csv");'],
+                    ['type' => 'SelectFile', 'name' => 'BefehleDatei', 'caption' => 'JSON-Datei einlesen', 'extensions' => '.json'],
+                    ['type' => 'Button', 'caption' => '📤 Datei übernehmen', 'onClick' => 'echo IRHUB_BefehleImportDatei($id, $BefehleDatei);'],
                 ]],
             ]],
             'szenen' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '✨  Szenen (Folgen als eigene Taste)', 'items' => [

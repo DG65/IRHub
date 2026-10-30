@@ -55,6 +55,7 @@ class IRHubBroadlink extends IPSModule
         $this->RegisterAttributeString('Geraet', '{}');
         $this->RegisterAttributeString('LetzterFehler', '');
         $this->RegisterAttributeString('Protokoll', '[]');
+        $this->RegisterAttributeString('FunkSender', '[]');          // bekannte Sender [{nr, laenge, basis, adresse}]
         $this->RegisterAttributeInteger('MitschnittScharf', 0);      // Zeitpunkt des letzten Scharfschaltens, 0 = neu scharf schalten
         $this->RegisterAttributeInteger('MitschnittPauseBis', 0);
         $this->registerFormAttributes();
@@ -376,7 +377,7 @@ class IRHubBroadlink extends IPSModule
             if (ord($paket[0]) === IRHubCode::TYP_RM4_RF && strlen($paket) >= 8) {
                 $mhz = unpack('V', substr($paket, 4, 4))[1] / 1000;
             }
-            array_unshift($protokoll, ['zeit' => $zeit, 'bis' => $zeit, 'mhz' => $mhz, 'code' => $code, 'wdh' => 1, 'erkannt' => $erkannt]);
+            array_unshift($protokoll, ['zeit' => $zeit, 'bis' => $zeit, 'mhz' => $mhz, 'code' => $code, 'wdh' => 1, 'erkannt' => $erkannt] + $this->senderZuordnen($paket));
             $protokoll = array_slice($protokoll, 0, self::PROTOKOLL_MAX);
         }
         $this->WriteAttributeString('Protokoll', (string)json_encode($protokoll));
@@ -386,6 +387,117 @@ class IRHubBroadlink extends IPSModule
         $this->SendDebug('Mitschnitt', $text . ' · ' . $code, 0);
         $this->UpdateFormField('ProtokollListe', 'values', (string)json_encode($this->protokollWerte()));
         $this->UpdateFormField('MitschnittZeile', 'caption', $this->mitschnittZeile());
+        $this->UpdateFormField('SenderZeile', 'caption', $this->senderZeile());
+    }
+
+    /**
+     * Welchem Sender gehört das Signal? Gleiche Bitlänge, Pulsbreite höchstens Faktor 1,3 verschieden,
+     * gleiche Adressbits. Neue Sender bekommen die nächste Nummer. Heuristik: Sender mit fest
+     * eingestellter gleicher Adresse (DIP-Schalter) fallen zusammen.
+     */
+    private function senderZuordnen(string $paket): array
+    {
+        $f = IRHubCode::funkBits($paket);
+        if ($f === null) {
+            return ['sender' => 0, 'taste' => '', 'wechselcode' => false];
+        }
+        $s = IRHubCode::funkSender($f['bits']);
+        $bekannt = json_decode((string)$this->ReadAttributeString('FunkSender'), true);
+        $bekannt = is_array($bekannt) ? $bekannt : [];
+        $laenge = strlen($f['bits']);
+        foreach ($bekannt as $b) {
+            if ((int)$b['laenge'] === $laenge && $b['adresse'] === $s['adresse']
+                && max($b['basis'], $f['basis']) / max(1, min($b['basis'], $f['basis'])) <= 1.3) {
+                return ['sender' => (int)$b['nr'], 'taste' => $s['taste'], 'wechselcode' => $s['wechselcode']];
+            }
+        }
+        $nr = count($bekannt) > 0 ? max(array_column($bekannt, 'nr')) + 1 : 1;
+        $bekannt[] = ['nr' => $nr, 'laenge' => $laenge, 'basis' => $f['basis'], 'adresse' => $s['adresse']];
+        $this->WriteAttributeString('FunkSender', (string)json_encode($bekannt));
+        return ['sender' => $nr, 'taste' => $s['taste'], 'wechselcode' => $s['wechselcode']];
+    }
+
+    /** Einträge aus Versionen vor 0.8.0 nachträglich einem Sender zuordnen, älteste zuerst. */
+    private function senderNachziehen(): void
+    {
+        $protokoll = $this->protokoll();
+        $geaendert = false;
+        for ($i = count($protokoll) - 1; $i >= 0; $i--) {
+            if (!array_key_exists('sender', $protokoll[$i])) {
+                $protokoll[$i] += $this->senderZuordnen(IRHubCode::ausBase64((string)$protokoll[$i]['code']));
+                $geaendert = true;
+            }
+        }
+        if ($geaendert) {
+            $this->WriteAttributeString('Protokoll', (string)json_encode($protokoll));
+        }
+    }
+
+    private function senderText(array $e): string
+    {
+        if ((int)($e['sender'] ?? 0) === 0) {
+            return 'nicht lesbar';
+        }
+        return 'Sender ' . (int)$e['sender'] . ((string)($e['taste'] ?? '') !== '' ? ' · Taste ' . $e['taste'] : '') . (!empty($e['wechselcode']) ? ' · Wechselcode?' : '');
+    }
+
+    /** Übersicht fürs Formular: welche Sender, wie viele Tasten und Signale. */
+    private function senderZeile(): string
+    {
+        $je = [];
+        $unlesbar = 0;
+        foreach ($this->protokoll() as $e) {
+            $nr = (int)($e['sender'] ?? 0);
+            if ($nr === 0) {
+                $unlesbar += (int)$e['wdh'];
+                continue;
+            }
+            $je[$nr]['tasten'][(string)($e['taste'] ?? '')] = true;
+            $je[$nr]['signale'] = ($je[$nr]['signale'] ?? 0) + (int)$e['wdh'];
+        }
+        if (count($je) === 0 && $unlesbar === 0) {
+            return 'ℹ️ Noch keine Sender erkannt.';
+        }
+        ksort($je);
+        $teile = [];
+        foreach ($je as $nr => $d) {
+            $teile[] = 'Sender ' . $nr . ': ' . count($d['tasten']) . ' Taste' . (count($d['tasten']) === 1 ? '' : 'n') . ', ' . $d['signale'] . ' Signal' . ($d['signale'] === 1 ? '' : 'e');
+        }
+        return '📡 ' . count($je) . ' Sender erkannt' . (count($teile) > 0 ? ' — ' . implode('; ', $teile) : '')
+            . ($unlesbar > 0 ? '. ' . $unlesbar . ' Signal' . ($unlesbar === 1 ? '' : 'e') . ' nicht lesbar (andere Kodierung).' : '.')
+            . ' Die Zuordnung ist eine Schätzung aus der Adresse im Signal.';
+    }
+
+    /** Protokoll als Datei: $Format 'csv' oder 'json'. Rückgabe: Data-URL für den Download-Knopf. */
+    public function MitschnittExport(string $Format): string
+    {
+        $eintraege = [];
+        foreach ($this->protokoll() as $e) {
+            $paket = IRHubCode::ausBase64((string)$e['code']);
+            $f = IRHubCode::funkBits($paket);
+            $eintraege[] = ['e' => $e, 'paket' => $paket, 'bits' => $f === null ? '' : $f['bits']];
+        }
+        if ($Format === 'json') {
+            $aus = array_map(static function ($x) {
+                return [
+                    'zeitpunkt' => date('c', (int)$x['e']['zeit']), 'bis' => date('c', (int)$x['e']['bis']), 'mhz' => (float)$x['e']['mhz'],
+                    'wiederholungen' => (int)$x['e']['wdh'], 'sender' => (int)($x['e']['sender'] ?? 0), 'taste' => (string)($x['e']['taste'] ?? ''),
+                    'wechselcode' => !empty($x['e']['wechselcode']), 'erkannt' => (string)$x['e']['erkannt'], 'bits' => $x['bits'],
+                    'pulse_us' => IRHubCode::paketZuPulse($x['paket']), 'code' => (string)$x['e']['code'],
+                ];
+            }, $eintraege);
+            return IRHubCode::datenUrl((string)json_encode($aus, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'application/json');
+        }
+        $zeilen = [['Zeitpunkt', 'Bis', 'MHz', 'Wiederholungen', 'Sender', 'Taste', 'Wechselcode vermutet', 'Erkannt', 'Signal', 'Bits', 'Pulsfolge (µs)', 'Code (Base64)']];
+        foreach ($eintraege as $x) {
+            $e = $x['e'];
+            $zeilen[] = [
+                date('d.m.Y H:i:s', (int)$e['zeit']), date('d.m.Y H:i:s', (int)$e['bis']), number_format((float)$e['mhz'], 2, ',', ''), (int)$e['wdh'],
+                (int)($e['sender'] ?? 0) === 0 ? '' : (int)$e['sender'], (string)($e['taste'] ?? ''), !empty($e['wechselcode']) ? 'ja' : '', (string)$e['erkannt'],
+                IRHubCode::beschreibung($x['paket']), $x['bits'], implode(' ', IRHubCode::paketZuPulse($x['paket'])), (string)$e['code'],
+            ];
+        }
+        return IRHubCode::datenUrl(IRHubCode::csv($zeilen), 'text/csv');
     }
 
     /** Signal mit den gelernten Funkbefehlen der angeschlossenen Fernbedienungen vergleichen. */
@@ -436,6 +548,7 @@ class IRHubBroadlink extends IPSModule
                 'signal'  => IRHubCode::beschreibung($paket),
                 'folge'   => IRHubCode::folgeText($paket, 12),
                 'wdh'     => (int)$e['wdh'] > 1 ? (int)$e['wdh'] . '×' : '',
+                'sender'  => $this->senderText($e),
                 'erkannt' => (string)$e['erkannt'] !== '' ? '✅ ' . $e['erkannt'] : '',
                 'code'    => (string)$e['code'],
             ];
@@ -500,8 +613,10 @@ class IRHubBroadlink extends IPSModule
     public function ProtokollLeeren(): string
     {
         $this->WriteAttributeString('Protokoll', '[]');
+        $this->WriteAttributeString('FunkSender', '[]');
         $this->UpdateFormField('ProtokollListe', 'values', '[]');
         $this->UpdateFormField('MitschnittZeile', 'caption', $this->mitschnittZeile());
+        $this->UpdateFormField('SenderZeile', 'caption', $this->senderZeile());
         return '✅ Protokoll geleert.';
     }
 
@@ -640,6 +755,7 @@ class IRHubBroadlink extends IPSModule
             ['code' => self::STATUS_UNERREICHBAR, 'icon' => 'error', 'caption' => 'Gerät antwortet nicht'],
             ['code' => self::STATUS_UNBEKANNT, 'icon' => 'inactive', 'caption' => 'Unbekannte Gerätekennung — bitte melden'],
         ];
+        $this->senderNachziehen();
         $ziele = [['caption' => '— Fernbedienung wählen —', 'value' => 0]];
         foreach ($this->fernbedienungen() as $fid => $fname) {
             $ziele[] = ['caption' => $fname . ' (#' . $fid . ')', 'value' => $fid];
@@ -649,6 +765,7 @@ class IRHubBroadlink extends IPSModule
                 ['type' => 'Label', 'caption' => 'Der Mitschnitt hält den Broadlink ständig empfangsbereit und schreibt jedes Funksignal mit Datum und Uhrzeit ins Protokoll — z. B. Handsender, Funkklingel oder Fernbedienungen, deren Taste man nicht extra lernen will. Ein Eintrag lässt sich direkt als Befehl in eine Fernbedienung übernehmen. Signale, die schon gelernt sind, werden erkannt.'],
                 ['type' => 'Label', 'caption' => 'Hinweis: Solange der Mitschnitt läuft, ist der Broadlink im Lernmodus (die Leuchte kann dauerhaft an sein). Lernt oder sendet eine Fernbedienung, pausiert er kurz. Wechselcode-Sender (z. B. Somfy RTS, moderne Garagentore) lassen sich protokollieren, aber nicht sinnvoll nachsenden.'],
                 ['type' => 'Label', 'name' => 'MitschnittZeile', 'caption' => $this->mitschnittZeile()],
+                ['type' => 'Label', 'name' => 'SenderZeile', 'caption' => $this->senderZeile()],
                 ['type' => 'List', 'name' => 'ProtokollListe', 'rowCount' => 10, 'add' => false, 'delete' => false,
                     'columns' => [
                         ['caption' => 'Zeitpunkt', 'name' => 'zeit', 'width' => '160px', 'add' => ''],
@@ -656,6 +773,7 @@ class IRHubBroadlink extends IPSModule
                         ['caption' => 'Signal', 'name' => 'signal', 'width' => '230px', 'add' => ''],
                         ['caption' => 'Pulsfolge (µs)', 'name' => 'folge', 'width' => 'auto', 'add' => ''],
                         ['caption' => 'Wdh.', 'name' => 'wdh', 'width' => '55px', 'add' => ''],
+                        ['caption' => 'Sender', 'name' => 'sender', 'width' => '190px', 'add' => ''],
                         ['caption' => 'Erkannt', 'name' => 'erkannt', 'width' => '200px', 'add' => ''],
                         ['caption' => 'Code', 'name' => 'code', 'width' => '0px', 'visible' => false, 'add' => ''],
                     ],
@@ -668,6 +786,8 @@ class IRHubBroadlink extends IPSModule
                 ]],
                 ['type' => 'RowLayout', 'items' => [
                     ['type' => 'Button', 'caption' => '▶️ Ausgewähltes Signal senden', 'onClick' => 'echo IRBL_MitschnittSenden($id, $ProtokollListe["code"]);'],
+                    ['type' => 'Button', 'caption' => '📄 Als CSV exportieren', 'download' => 'IRHub-Funkmitschnitt.csv', 'onClick' => 'echo IRBL_MitschnittExport($id, "csv");'],
+                    ['type' => 'Button', 'caption' => '{ } Als JSON exportieren', 'download' => 'IRHub-Funkmitschnitt.json', 'onClick' => 'echo IRBL_MitschnittExport($id, "json");'],
                     ['type' => 'Button', 'caption' => '🗑 Protokoll leeren', 'confirm' => 'Protokoll wirklich leeren?', 'onClick' => 'echo IRBL_ProtokollLeeren($id);'],
                 ]],
             ]],

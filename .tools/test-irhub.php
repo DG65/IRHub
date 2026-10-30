@@ -765,6 +765,102 @@ pruef('Protokoll leeren', strpos($B->ProtokollLeeren(), '✅') === 0 && $B->Read
 $B->attrs['MitschnittPauseBis'] = 0;
 $form = json_encode(json_decode($B->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
 pruef('Formular: Mitschnitt-Panel mit Liste und Übernahme', strpos($form, '"name":"ProtokollListe"') !== false && strpos($form, '"name":"ZielFernbedienung"') !== false && strpos($form, 'Mitschnitt läuft auf 433,92 MHz') !== false);
+// Sender erkennen
+abschnitt('Sender erkennen und Export');
+$rahmen = static function (string $bits, int $t): array {
+    $p = [];
+    foreach (str_split($bits) as $b) {
+        array_push($p, ...($b === '1' ? [3 * $t, $t] : [$t, 3 * $t]));
+    }
+    return $p;
+};
+$funk = static function (string $bits, int $t = 350) use ($rahmen): string {
+    $r = array_merge($rahmen($bits, $t), [$t, 31 * $t]);
+    return IRHubCode::pulseZuPaket(array_merge($r, $r, $r), IRHubCode::TYP_RF433);
+};
+$adrA = '1010110010110100';
+$adrB = '0110001110100101';
+$a1 = $funk($adrA . '00000001');
+$a2 = $funk($adrA . '00000010');
+$b1 = $funk($adrB . '00000001');
+pruef('Bits gelesen (24 Bit, Pulsbreite ≈ 350 µs)', (IRHubCode::funkBits($a1)['bits'] ?? '') === $adrA . '00000001' && abs(IRHubCode::funkBits($a1)['basis'] - 350) < 40);
+pruef('Zwei Tasten mit wenigen Bits Unterschied sind NICHT dasselbe Signal', !IRHubCode::aehnlich($a1, $a2));
+pruef('Gleiche Taste bleibt dasselbe Signal', IRHubCode::aehnlich($a1, $funk($adrA . '00000001', 370)));
+pruef('Infrarot hat keine Funk-Bits', IRHubCode::funkBits($irEcht) === null);
+$empfang = static function (string $paket) use ($B, $sim): void {
+    $B->attrs['MitschnittPauseBis'] = 0;
+    $B->MitschnittSchritt();
+    $sim->wartendCode = $paket;
+    $sim->wartendNach = 1;
+    $B->MitschnittSchritt();
+};
+$empfang($a1);
+$empfang($b1);
+$empfang($a2);
+$prot = json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true);
+pruef('Drei Einträge (Tasten nicht zusammengefasst)', count($prot) === 3, (string)count($prot));
+pruef('Tasten desselben Senders: gleiche Nummer, andere Taste', $prot[2]['sender'] === 1 && $prot[0]['sender'] === 1 && $prot[2]['taste'] === '01' && $prot[0]['taste'] === '02', json_encode($prot[0]));
+pruef('Anderer Sender: eigene Nummer', $prot[1]['sender'] === 2);
+$zeile = $GLOBALS['FORM'][$bl]['SenderZeile']['caption'] ?? '';
+pruef('Übersicht: 2 Sender, Tasten und Signale', strpos($zeile, '2 Sender erkannt') !== false && strpos($zeile, 'Sender 1: 2 Tasten, 2 Signale') !== false && strpos($zeile, 'Sender 2: 1 Taste, 1 Signal') !== false, $zeile);
+pruef('Gleiche Adresse, andere Pulsbreite: anderer Sender', (static function () use ($funk, $empfang, $B, $adrA) {
+    $empfang($funk($adrA . '00000001', 700));
+    return json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true)[0]['sender'] === 3;
+})());
+// Wechselcode-Bauart: vorn wechselnd, hinten Seriennummer
+$serie = '1100101011110000101011001010';
+$wc = static function (string $hopp, string $taste) use ($rahmen, $serie): string {
+    $vorspann = array_fill(0, 23, 400);
+    $r = array_merge($vorspann, [4000], $rahmen($hopp . $serie . $taste . '00', 400), [400, 16000]);
+    return IRHubCode::pulseZuPaket($r, IRHubCode::TYP_RF433);
+};
+$empfang($wc('10101010101010101010101010101010', '0001'));
+$empfang($wc('01100110011001100110011001100110', '0001'));
+$prot = json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true);
+pruef('Wechselcode: zwei Drücke, ein Sender, als vermutet markiert', count($prot) === 6 && $prot[0]['sender'] === 4 && $prot[1]['sender'] === 4 && $prot[0]['wechselcode'] === true, json_encode([$prot[0]['sender'] ?? null, $prot[1]['sender'] ?? null, count($prot)]));
+pruef('Wechselcode: Hinweis in der Liste', strpos(json_decode($GLOBALS['FORM'][$bl]['ProtokollListe']['values'], true)[0]['sender'], 'Wechselcode?') !== false);
+// Andere Kodierung: wird protokolliert, aber nicht zugeordnet
+$unlesbar = IRHubCode::pulseZuPaket(array_fill(0, 60, 500), IRHubCode::TYP_RF433);
+pruef('Andere Kodierung: keine Bits', IRHubCode::funkBits($unlesbar) === null);
+$empfang($unlesbar);
+$prot = json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true);
+pruef('Andere Kodierung: Eintrag „nicht lesbar"', $prot[0]['sender'] === 0 && json_decode($GLOBALS['FORM'][$bl]['ProtokollListe']['values'], true)[0]['sender'] === 'nicht lesbar');
+// Einträge aus 0.6.0/0.7.0 ohne Sender werden nachgezogen
+$alt = json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true);
+foreach ($alt as &$e) { unset($e['sender'], $e['taste'], $e['wechselcode']); }
+unset($e);
+$B->WriteAttributeStringOeffentlich('Protokoll', json_encode($alt));
+$B->GetConfigurationForm();
+pruef('Alt-Einträge beim Öffnen zugeordnet', json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true)[count($alt) - 1]['sender'] === 1);
+// Export Mitschnitt
+$url = $B->MitschnittExport('csv');
+pruef('CSV: Data-URL', strpos($url, 'data:text/csv;charset=utf-8;base64,') === 0);
+$csv = base64_decode(substr($url, strpos($url, ',') + 1));
+$zeilen = explode("\r\n", trim($csv));
+pruef('CSV: BOM, Kopf mit Sender, Zeile je Eintrag', substr($csv, 0, 3) === "\xEF\xBB\xBF" && strpos($zeilen[0], '"Sender";"Taste"') !== false && count($zeilen) === count($alt) + 1);
+pruef('CSV: deutsches Datum und Dezimalkomma', preg_match('/^"\d\d\.\d\d\.\d{4} \d\d:\d\d:\d\d";"[^"]*";"433,92"/', $zeilen[1]) === 1, $zeilen[1]);
+$url = $B->MitschnittExport('json');
+$j = json_decode(base64_decode(substr($url, strpos($url, ',') + 1)), true);
+pruef('JSON: alle Felder, Code wiederverwendbar', count($j) === count($alt) && isset($j[0]['zeitpunkt'], $j[0]['pulse_us'], $j[0]['code']) && IRHubCode::ausBase64($j[count($j) - 1]['code']) === $a1 && $j[count($j) - 1]['bits'] === $adrA . '00000001');
+$form = json_encode(json_decode($B->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+pruef('Formular: Download-Knöpfe, Sender-Spalte, Übersicht', strpos($form, '"download":"IRHub-Funkmitschnitt.csv"') !== false && strpos($form, '"download":"IRHub-Funkmitschnitt.json"') !== false && strpos($form, '"name":"sender"') !== false && strpos($form, '"name":"SenderZeile"') !== false);
+pruef('Leeren setzt auch die Sender-Nummern zurück', strpos($B->ProtokollLeeren(), '✅') === 0 && $B->ReadAttributeStringOeffentlich('FunkSender') === '[]');
+// Export Befehle: wieder einlesbar
+$vorher = json_decode($F->Exportieren(), true);
+$url = $F->BefehleExport('json');
+pruef('Befehle: JSON-Download', strpos($url, 'data:application/json;') === 0);
+$F->Loeschen(array_key_first($vorher));
+$text = $F->BefehleImportDatei(substr($url, strpos($url, ',') + 1));
+pruef('Befehle: Datei wieder eingelesen, nichts fehlt', strpos($text, '✅') === 0 && json_decode($F->Exportieren(), true) == $vorher, $text);
+$csv = base64_decode(substr($F->BefehleExport('csv'), strlen('data:text/csv;charset=utf-8;base64,')));
+pruef('Befehle: CSV mit Name, Signal, Code', strpos($csv, '"Name";"Signal";"Gruppe";"Symbol"') !== false && strpos($csv, '"' . array_key_first($vorher) . '"') !== false);
+$F->TasteAnpassen('Ein', 'quellen', '🎬');
+$F->BefehleImportDatei(base64_encode($F->Exportieren()));
+$kt = array_values(array_filter(IRHubTasten::fuerKachel(json_decode($F->ReadAttributeStringOeffentlich('Befehle'), true), []), static function ($t) { return $t['name'] === 'Ein'; }))[0];
+pruef('Befehle: Rückimport behält Gruppe und Symbol', $kt['gruppe'] === 'quellen' && $kt['symbol'] === '🎬');
+$F->TasteAnpassen('Ein', '', '');
+pruef('Befehle: leere Datei → Hinweis', strpos($F->BefehleImportDatei(''), 'ℹ️') === 0);
+
 // Gerät ohne Funk: Mitschnitt schaltet sich ab
 $B->WriteAttributeStringOeffentlich('Geraet', json_encode(['typ' => 0x2737, 'mac' => 'a0:43:b0:55:10:f7', 'kennung' => '192.168.1.50|' . 0x27A9]));
 $B->MitschnittSchritt();
