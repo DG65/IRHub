@@ -886,6 +886,12 @@ $B->WriteAttributeStringOeffentlich('Sitzung', '{}');
 $text = $B->VerbindungPruefen();
 pruef('Gesperrt: Status 201 und Anleitung', $B->status === 201 && strpos($text, 'Gerät sperren') !== false, $text);
 pruef('Kind nennt Sperre als Grund', strpos($F->GelerntTesten() . $F->LernenStarten('ir'), 'gesperrt') !== false);
+// Live-Fund 04.11.2026: Broadlink-Instanz ohne Namen → Meldung nannte „“; jetzt die IP-Adresse
+$blName = $B->name;
+$B->name = '';
+$text = $F->LernenStarten('ir');
+pruef('Gerät ohne Namen: Meldung nennt die IP-Adresse', strpos($text, '„192.168.1.50') !== false && strpos($text, '„"') === false, $text);
+$B->name = $blName;
 $sim->gesperrt = false;
 $B->VerbindungPruefen();
 pruef('Nach Entsperren wieder aktiv', $B->status === 102);
@@ -937,6 +943,13 @@ try {
 pruef('Fehlender Code: Ausnahme, Variable springt nicht', $ok === true && $KL->vars['Solltemperatur']['value'] === $wert);
 pruef('Ziel springt auf die neue Lücke', $KL->ReadAttributeStringOeffentlich('Ziel') === 'cool|auto|24');
 pruef('Skript-API Setzen', $KL->Setzen(true, 'cool', 23, '') && end($sim->gesendet) === $codes['cool|auto|23']);
+// Live-Fund 04.11.2026: ein Sendefehler stand doppelt im Meldungsfenster (codeSenden + Setzen)
+$B->status = 202;
+$logVorher = count($GLOBALS['LOG']);
+$ok = $KL->Setzen(true, 'cool', 23, '');
+$neu = array_slice($GLOBALS['LOG'], $logVorher);
+pruef('Sendefehler genau einmal protokolliert', $ok === false && count($neu) === 1, json_encode($neu, JSON_UNESCAPED_UNICODE));
+$B->status = 102;
 pruef('Skript-API Ausschalten', $KL->Ausschalten() && end($sim->gesendet) === $codes['off']);
 // SmartIR-Datei hochladen
 $KL->props['Quelle'] = 'smartir';
@@ -966,6 +979,7 @@ pruef('Protokollname TCL112', strpos(IRHubCode::protokollName($an), 'TCL112') ==
 $text = $KL->CodeAnalysieren($albinEin);
 $nrn = array_column(json_decode($KL->ReadAttributeStringOeffentlich('Analyse'), true)['vorschlaege'], 'nr');
 pruef('Vorschläge enthalten DeLonghi 2243 und Beko 1602', in_array(2243, $nrn, true) && in_array(1602, $nrn, true), $text);
+pruef('Vorschlagsliste ohne doppelten Punkt (Live-Fund „Galanz (2520) ….“)', strpos($text, '…') === false && strpos($text, '..') === false, $text);
 pruef('Keine 18-Byte-Mitsubishi-Tabelle (1120) vorgeschlagen', !in_array(1120, $nrn, true));
 pruef('Formular-Auswahl aufgefrischt', strpos($GLOBALS['FORM'][$kl]['VorschlagNr']['options'] ?? '', '2243') !== false && ($GLOBALS['FORM'][$kl]['VorschlagZeile']['visible'] ?? false) === true);
 pruef('Kein Klima-Code → ehrliche Absage', strpos($KL->CodeAnalysieren($pronto), 'kein byteweise') !== false);

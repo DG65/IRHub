@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.1 (04.11.2026)
+
+Funde aus dem Live-Test auf Dietmars Symcon (englische Oberfläche):
+- Broadlink-Gerät ohne Namen: Meldungen der Fernbedienung/Klimaanlage nennen jetzt die IP-Adresse statt „“.
+- Codetabellen-Vorschläge: kein „… .“ mehr am Ende der Liste (die Anzahl steht schon im Satz).
+- Klimaanlage: ein Sendefehler aus einem Skript (IRKLIMA_Setzen) stand doppelt im Meldungsfenster.
+
 ## 0.9.0 (04.11.2026)
 
 - IRHub spricht Englisch: Quelltexte englisch, Deutsch über locale.json (Store-Regel). Formulare, Variablen, Meldungen, Kacheln, Export-Dateinamen, Datum und Dezimalzeichen folgen der Sprache von Symcon; README.en.md.

@@ -60,6 +60,9 @@ trait IRHubFormular
             '• 🇬🇧 IRHub speaks English: forms, variables, messages and tiles follow the language of Symcon. German stays as before.',
             '• Learned remote buttons with English names (e.g. “Volume up”, “Power”) are sorted into the keypad just like German ones.',
         ],
+        '0.9.1' => [
+            '• Messages: a Broadlink device without a name is called by its IP address, the code table suggestions end cleanly, and a failed send appears only once in the messages window.',
+        ],
     ];
 
     private static $IRHUB_REPO_URL     = 'https://github.com/DG65/IRHub';

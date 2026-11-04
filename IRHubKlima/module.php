@@ -327,7 +327,7 @@ class IRHubKlima extends IPSModule
             $protokoll = IRHubCode::protokollName($a);
             $liste = implode(', ', array_map(static function ($t) {
                 return $t['hersteller'] . ' (' . $t['nr'] . ')';
-            }, array_slice($v, 0, 4))) . (count($v) > 4 ? ' …' : '');
+            }, array_slice($v, 0, 4)));
             if (count($v) === 0) {
                 $meldung = ['🔍 Protocol: %s. No SmartIR table fits — learning it yourself is the way here.', $protokoll];
             } elseif (count($v) === 1) {
@@ -450,11 +450,11 @@ class IRHubKlima extends IPSModule
         if ($Luefter !== '') {
             $z['luefter'] = $Luefter;
         }
-        [$ok, $meldung] = $this->zustandSenden($z);
-        if (!$ok) {
-            $this->LogMessage($meldung, KL_WARNING);
+        $r = $this->zustandSenden($z);
+        if (!$r[0] && empty($r[2])) {
+            $this->LogMessage($r[1], KL_WARNING);
         }
-        return $ok;
+        return $r[0];
     }
 
     public function Ausschalten(): bool
@@ -480,7 +480,7 @@ class IRHubKlima extends IPSModule
         }
         [$ok, $meldung] = $this->codeSenden($code);
         if (!$ok) {
-            return [false, $meldung];
+            return [false, $meldung, true];   // codeSenden hat den Fehler bereits protokolliert
         }
         $this->WriteAttributeString('Zustand', (string)json_encode($z + ['zeit' => time()]));
         $this->variablenSetzen($z, $tab);

@@ -49,7 +49,7 @@ trait IRHubLernen
                 202 => '⛔ The Broadlink device “%s” does not respond (check IP address, Wi-Fi, power supply).',
                 203 => '⛔ The Broadlink device “%s” has an unknown device ID.',
             ];
-            return ['ok' => false, 'meldung' => IRHubText::t($gruende[$status] ?? '⛔ The Broadlink device “%s” is not active.', IPS_GetName($eltern))];
+            return ['ok' => false, 'meldung' => IRHubText::t($gruende[$status] ?? '⛔ The Broadlink device “%s” is not active.', $this->geraetName($eltern))];
         }
         try {
             $antwort = $this->SendDataToParent((string)json_encode(array_merge(['DataID' => self::$IRHUB_DATA_ZUM_GERAET, 'Aktion' => $aktion], $daten)));
@@ -60,12 +60,22 @@ trait IRHubLernen
         return is_array($r) ? $r : ['ok' => false, 'meldung' => IRHubText::t('⛔ No response from the Broadlink device.')];
     }
 
+    /** Name des Broadlink-Geräts für Meldungen; ohne Namen die IP-Adresse, sonst die Objekt-ID. */
+    private function geraetName(int $eltern): string
+    {
+        $name = trim(IPS_GetName($eltern));
+        if ($name === '') {
+            $name = trim((string)@IPS_GetProperty($eltern, 'Host'));
+        }
+        return $name !== '' ? $name : '#' . $eltern;
+    }
+
     public function ReceiveData($JSONString)
     {
         return '';
     }
 
-    /** Einen Code senden (Base64). Rückgabe: [ok, Meldung]. */
+    /** Einen Code senden (Base64). Rückgabe: [ok, Meldung]; ein Fehler steht danach schon im Meldungsfenster. */
     protected function codeSenden(string $code): array
     {
         $r = $this->geraet('senden', ['Code' => $code]);
