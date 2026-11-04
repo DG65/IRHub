@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/IRHubCode.php';
+require_once __DIR__ . '/IRHubText.php';
 
 // ===========================================================================
 // Gemeinsamer Lern- und Sendeablauf für Fernbedienung und Klimaanlage.
@@ -38,17 +39,17 @@ trait IRHubLernen
         if (!$this->HasActiveParent()) {
             $eltern = (int)(IPS_GetInstance($this->InstanceID)['ConnectionID'] ?? 0);
             if ($eltern === 0) {
-                return ['ok' => false, 'meldung' => '⛔ Kein Broadlink-Gerät zugeordnet — unter „Gateway ändern" eine IRHub-Broadlink-Instanz wählen.'];
+                return ['ok' => false, 'meldung' => IRHubText::t('⛔ No Broadlink device assigned — choose an IRHub Broadlink instance under “Change gateway”.')];
             }
             // Den Grund nennen, den das Broadlink-Gerät selbst kennt (gesperrt, keine Antwort, keine IP).
             $status = (int)(IPS_GetInstance($eltern)['InstanceStatus'] ?? 0);
             $gruende = [
-                104 => 'hat noch keine IP-Adresse',
-                201 => 'ist in der Broadlink-App gesperrt — dort „Gerät sperren" ausschalten',
-                202 => 'antwortet nicht (IP-Adresse, WLAN, Stromversorgung prüfen)',
-                203 => 'hat eine unbekannte Gerätekennung',
+                104 => '⛔ The Broadlink device “%s” has no IP address yet.',
+                201 => '⛔ The Broadlink device “%s” is locked in the Broadlink app — turn off “Lock device” there.',
+                202 => '⛔ The Broadlink device “%s” does not respond (check IP address, Wi-Fi, power supply).',
+                203 => '⛔ The Broadlink device “%s” has an unknown device ID.',
             ];
-            return ['ok' => false, 'meldung' => '⛔ Das Broadlink-Gerät „' . IPS_GetName($eltern) . '" ' . ($gruende[$status] ?? 'ist nicht aktiv') . '.'];
+            return ['ok' => false, 'meldung' => IRHubText::t($gruende[$status] ?? '⛔ The Broadlink device “%s” is not active.', IPS_GetName($eltern))];
         }
         try {
             $antwort = $this->SendDataToParent((string)json_encode(array_merge(['DataID' => self::$IRHUB_DATA_ZUM_GERAET, 'Aktion' => $aktion], $daten)));
@@ -56,7 +57,7 @@ trait IRHubLernen
             return ['ok' => false, 'meldung' => '⛔ ' . $e->getMessage()];
         }
         $r = json_decode((string)$antwort, true);
-        return is_array($r) ? $r : ['ok' => false, 'meldung' => '⛔ Keine Antwort vom Broadlink-Gerät.'];
+        return is_array($r) ? $r : ['ok' => false, 'meldung' => IRHubText::t('⛔ No response from the Broadlink device.')];
     }
 
     public function ReceiveData($JSONString)
@@ -69,11 +70,11 @@ trait IRHubLernen
     {
         $r = $this->geraet('senden', ['Code' => $code]);
         if (empty($r['ok'])) {
-            $meldung = (string)($r['meldung'] ?? '⛔ Senden fehlgeschlagen.');
-            $this->LogMessage('Senden fehlgeschlagen: ' . $meldung, KL_WARNING);
+            $meldung = (string)($r['meldung'] ?? IRHubText::t('⛔ Sending failed.'));
+            $this->LogMessage(IRHubText::t('Sending failed: %s', $meldung), KL_WARNING);
             return [false, $meldung];
         }
-        return [true, '✅ Gesendet.'];
+        return [true, IRHubText::t('✅ Sent.')];
     }
 
     // ------------------------------------------------------------------ Lernen
@@ -91,41 +92,43 @@ trait IRHubLernen
             case 'ir':
                 $r = $this->geraet('lernen');
                 $zustand = ['art' => 'ir', 'phase' => 'abholen', 'start' => $start, 'scharf' => $start];
-                $hinweis = '👉 Fernbedienung auf das Broadlink-Gerät richten und die Taste EINMAL kurz drücken (30 s Zeit).';
+                $hinweis = IRHubText::t('👉 Point the remote at the Broadlink device and press the button ONCE briefly (30 s).');
                 break;
             case 'funk':
                 $r = $this->geraet('sweep');
                 $zustand = ['art' => 'funk', 'phase' => 'sweep', 'start' => $start, 'scharf' => $start];
-                $hinweis = '👉 Taste der Funk-Fernbedienung jetzt GEDRÜCKT HALTEN, bis die Frequenz gefunden ist (Anzeige unten).';
+                $hinweis = IRHubText::t('👉 Now PRESS AND HOLD the button on the RF remote until the frequency is found (shown below).');
                 break;
             case 'funk433':
             case 'funk315':
                 $mhz = $Art === 'funk315' ? 315.0 : 433.92;
                 $r = $this->geraet('funkSuchen', ['MHz' => $mhz]);
                 $zustand = ['art' => $Art, 'phase' => 'abholen', 'mhz' => $mhz, 'start' => $start, 'scharf' => $start];
-                $hinweis = '👉 Taste der Funk-Fernbedienung einmal kurz drücken (' . str_replace('.', ',', (string)$mhz) . ' MHz, 30 s Zeit).';
+                $hinweis = IRHubText::t('👉 Briefly press the button on the RF remote once (%s MHz, 30 s).', $this->lernZahl((string)$mhz));
                 break;
             default:
-                return '⛔ Unbekannte Lernart.';
+                return IRHubText::t('⛔ Unknown learning mode.');
         }
         if (empty($r['ok'])) {
-            $this->lernAnzeige((string)($r['meldung'] ?? '⛔ Lernmodus ließ sich nicht starten.'));
-            return (string)($r['meldung'] ?? '⛔ Lernmodus ließ sich nicht starten.');
+            $meldung = (string)($r['meldung'] ?? IRHubText::t('⛔ Could not start learning mode.'));
+            $this->lernAnzeige($meldung);
+            return $meldung;
         }
         $zustand['hinweis'] = $hinweis;
         $this->WriteAttributeString('Lernen', (string)json_encode($zustand));
         $this->SetTimerInterval('Lernen', 1000);
         $this->lernAnzeige('⏳ ' . $hinweis);
         $gesamt = $zustand['phase'] === 'sweep' ? self::$IRHUB_SWEEP_ZEIT : self::$IRHUB_LERN_ZEIT;
-        $this->countdown($gesamt, $gesamt, $zustand['phase'] === 'sweep' ? 'Taste gedrückt halten' : 'Taste jetzt drücken');
+        $this->countdown($gesamt, $gesamt, IRHubText::t($zustand['phase'] === 'sweep' ? 'hold the button' : 'press the button now'));
         return $hinweis;
     }
 
     public function LernenAbbrechen(): string
     {
         $this->lernenBeenden(true);
-        $this->lernAnzeige('ℹ️ Lernen abgebrochen.');
-        return 'ℹ️ Lernen abgebrochen.';
+        $text = IRHubText::t('ℹ️ Learning cancelled.');
+        $this->lernAnzeige($text);
+        return $text;
     }
 
     /** Timer: ein Schritt des Lernablaufs. */
@@ -140,10 +143,10 @@ trait IRHubLernen
         if ($z['phase'] === 'sweep') {
             if ($jetzt - $z['start'] > self::$IRHUB_SWEEP_ZEIT) {
                 $this->lernenBeenden(true);
-                $this->lernAnzeige('⚠️ Keine Funkfrequenz gefunden. Taste länger gedrückt halten — oder „Funk 433,92 MHz" direkt wählen, wenn die Frequenz bekannt ist.');
+                $this->lernAnzeige(IRHubText::t('⚠️ No RF frequency found. Hold the button longer — or choose “RF 433.92 MHz” directly if the frequency is known.'));
                 return;
             }
-            $this->countdown(self::$IRHUB_SWEEP_ZEIT - ($jetzt - $z['start']), self::$IRHUB_SWEEP_ZEIT, 'Taste gedrückt halten, Frequenz wird gesucht');
+            $this->countdown(self::$IRHUB_SWEEP_ZEIT - ($jetzt - $z['start']), self::$IRHUB_SWEEP_ZEIT, IRHubText::t('hold the button, searching for the frequency'));
             $r = $this->geraet('frequenzPruefen');
             if (empty($r['ok'])) {
                 $this->lernFehler($r);
@@ -151,23 +154,23 @@ trait IRHubLernen
             }
             if (!empty($r['gefunden'])) {
                 $mhz = (float)$r['mhz'];
-                $this->lernAnzeige('✅ Frequenz ' . number_format($mhz, 2, ',', '') . ' MHz gefunden. 👉 Taste jetzt LOSLASSEN und dann einmal kurz drücken.');
+                $this->lernAnzeige(IRHubText::t('✅ Frequency %s MHz found. 👉 Now RELEASE the button and then press it once briefly.', $this->lernZahl(number_format($mhz, 2, '.', ''))));
                 IPS_Sleep(1000);
                 $r = $this->geraet('funkSuchen', ['MHz' => $mhz]);
                 if (empty($r['ok'])) {
                     $this->lernFehler($r);
                     return;
                 }
-                $z = ['art' => 'funk', 'phase' => 'abholen', 'mhz' => $mhz, 'start' => $jetzt, 'scharf' => $jetzt, 'hinweis' => 'Taste kurz drücken (' . number_format($mhz, 2, ',', '') . ' MHz).'];
+                $z = ['art' => 'funk', 'phase' => 'abholen', 'mhz' => $mhz, 'start' => $jetzt, 'scharf' => $jetzt, 'hinweis' => IRHubText::t('Press the button briefly (%s MHz).', $this->lernZahl(number_format($mhz, 2, '.', '')))];
                 $this->WriteAttributeString('Lernen', (string)json_encode($z));
-                $this->countdown(self::$IRHUB_LERN_ZEIT, self::$IRHUB_LERN_ZEIT, 'loslassen, dann einmal kurz drücken');
+                $this->countdown(self::$IRHUB_LERN_ZEIT, self::$IRHUB_LERN_ZEIT, IRHubText::t('release, then press once briefly'));
             }
             return;
         }
         // Phase „abholen"
         if ($jetzt - $z['start'] > self::$IRHUB_LERN_ZEIT) {
             $this->lernenBeenden(true);
-            $this->lernAnzeige('⚠️ Kein Signal empfangen (30 s). Abstand verkürzen (10–30 cm) und nochmals versuchen.');
+            $this->lernAnzeige(IRHubText::t('⚠️ No signal received (30 s). Move closer (10–30 cm) and try again.'));
             return;
         }
         $r = $this->geraet('abholen');
@@ -179,7 +182,7 @@ trait IRHubLernen
         if ($code !== '') {
             $this->lernenBeenden(true);
             $this->WriteAttributeString('Gelernt', $code);
-            $this->lernAnzeige('✅ Code empfangen: ' . IRHubCode::beschreibung(IRHubCode::ausBase64($code)) . '. Jetzt „Testen", dann speichern.');
+            $this->lernAnzeige(IRHubText::t('✅ Code received: %s. Now “Test”, then save.', IRHubCode::beschreibung(IRHubCode::ausBase64($code))));
             $this->gelerntAnzeigen();
             $this->nachDemLernen($code);
             return;
@@ -193,8 +196,8 @@ trait IRHubLernen
             }
         }
         $rest = max(0, self::$IRHUB_LERN_ZEIT - ($jetzt - $z['start']));
-        $this->lernAnzeige('⏳ Warte auf Signal … noch ' . $rest . ' s. ' . ($z['hinweis'] ?? ''));
-        $this->countdown($rest, self::$IRHUB_LERN_ZEIT, 'Taste jetzt drücken');
+        $this->lernAnzeige(IRHubText::t('⏳ Waiting for signal … %s s left. %s', $rest, $z['hinweis'] ?? ''));
+        $this->countdown($rest, self::$IRHUB_LERN_ZEIT, IRHubText::t('press the button now'));
     }
 
     /** Wird nach jedem erfolgreich gelernten Code aufgerufen; Module können das überschreiben. */
@@ -205,8 +208,8 @@ trait IRHubLernen
     private function lernFehler(array $r): void
     {
         $this->lernenBeenden(false);
-        $meldung = (string)($r['meldung'] ?? '⛔ Fehler beim Lernen.');
-        $this->LogMessage('Lernen abgebrochen: ' . $meldung, KL_WARNING);
+        $meldung = (string)($r['meldung'] ?? IRHubText::t('⛔ Error while learning.'));
+        $this->LogMessage(IRHubText::t('Learning aborted: %s', $meldung), KL_WARNING);
         $this->lernAnzeige($meldung);
     }
 
@@ -226,33 +229,40 @@ trait IRHubLernen
     {
         $code = $this->ReadAttributeString('Gelernt');
         if ($code === '') {
-            return 'ℹ️ Es liegt kein gelernter Code vor.';
+            return IRHubText::t('ℹ️ There is no learned code.');
         }
         [$ok, $meldung] = $this->codeSenden($code);
-        return $ok ? '✅ Gesendet — hat das Gerät reagiert? Dann speichern.' : $meldung;
+        return $ok ? IRHubText::t('✅ Sent — did the device respond? Then save.') : $meldung;
     }
 
     public function GelerntVerwerfen(): string
     {
         $this->WriteAttributeString('Gelernt', '');
         $this->gelerntAnzeigen();
-        $this->lernAnzeige('ℹ️ Gelernten Code verworfen.');
-        return 'ℹ️ Gelernten Code verworfen.';
+        $text = IRHubText::t('ℹ️ Learned code discarded.');
+        $this->lernAnzeige($text);
+        return $text;
     }
 
-    /** Countdown-Balken: läuft von $gesamt auf 0 Sekunden. */
+    /** Zahl mit Nachkommastellen in der Schreibweise der Sprache (Deutsch: Komma). */
+    protected function lernZahl(string $zahl): string
+    {
+        return str_replace('.', IRHubText::t('language code: en') === 'de' ? ',' : '.', $zahl);
+    }
+
+    /** Countdown-Balken: läuft von $gesamt auf 0 Sekunden; $text ist schon übersetzt. */
     protected function countdown(int $rest, int $gesamt, string $text): void
     {
         $rest = max(0, $rest);
         $this->UpdateFormField('LernFortschritt', 'maximum', $gesamt);
         $this->UpdateFormField('LernFortschritt', 'current', $rest);
-        $this->UpdateFormField('LernFortschritt', 'caption', 'noch ' . $rest . ' s – ' . $text);
+        $this->UpdateFormField('LernFortschritt', 'caption', IRHubText::t('%s s left – %s', $rest, $text));
         $this->UpdateFormField('LernFortschritt', 'visible', true);
     }
 
     protected function lernAnzeige(string $text): void
     {
-        $this->SendDebug('Lernen', $text, 0);
+        $this->SendDebug('Learning', $text, 0);
         $this->UpdateFormField('LernStatus', 'caption', $text);
     }
 
@@ -264,21 +274,21 @@ trait IRHubLernen
         // Kein echo-Popup beim Start: es würde den laufenden Countdown verdecken. Rückmeldung
         // geben Statuszeile und Balken darunter (SUITE.md Rückmeldung, Muster 2).
         $p = $this->irhubPrefix();
-        $knoepfe = [['type' => 'Button', 'caption' => '📥 Infrarot lernen', 'onClick' => $p . '_LernenStarten($id, "ir");']];
+        $knoepfe = [['type' => 'Button', 'caption' => IRHubText::t('📥 Learn infrared'), 'onClick' => $p . '_LernenStarten($id, "ir");']];
         if ($funk) {
-            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 Funk lernen (Frequenz suchen)', 'onClick' => $p . '_LernenStarten($id, "funk");'];
-            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 Funk 433,92 MHz', 'onClick' => $p . '_LernenStarten($id, "funk433");'];
-            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 Funk 315 MHz', 'onClick' => $p . '_LernenStarten($id, "funk315");'];
+            $knoepfe[] = ['type' => 'Button', 'caption' => IRHubText::t('📻 Learn RF (search frequency)'), 'onClick' => $p . '_LernenStarten($id, "funk");'];
+            $knoepfe[] = ['type' => 'Button', 'caption' => IRHubText::t('📻 RF 433.92 MHz'), 'onClick' => $p . '_LernenStarten($id, "funk433");'];
+            $knoepfe[] = ['type' => 'Button', 'caption' => IRHubText::t('📻 RF 315 MHz'), 'onClick' => $p . '_LernenStarten($id, "funk315");'];
         }
-        $knoepfe[] = ['type' => 'Button', 'caption' => '✖ Abbrechen', 'onClick' => $p . '_LernenAbbrechen($id);'];
+        $knoepfe[] = ['type' => 'Button', 'caption' => IRHubText::t('✖ Cancel'), 'onClick' => $p . '_LernenAbbrechen($id);'];
         return [
             ['type' => 'RowLayout', 'items' => $knoepfe],
             ['type' => 'ProgressBar', 'name' => 'LernFortschritt', 'minimum' => 0, 'maximum' => self::$IRHUB_LERN_ZEIT, 'current' => self::$IRHUB_LERN_ZEIT, 'caption' => '', 'visible' => false, 'width' => '600px'],
-            ['type' => 'Label', 'name' => 'LernStatus', 'caption' => $laeuft ? '⏳ Lernen läuft …' : ($gelernt !== '' ? '✅ Gelernter Code liegt bereit: ' . IRHubCode::beschreibung(IRHubCode::ausBase64($gelernt)) : 'ℹ️ Bereit. Erst unten auswählen, wofür gelernt wird, dann den Lernknopf drücken.')],
+            ['type' => 'Label', 'name' => 'LernStatus', 'caption' => $laeuft ? IRHubText::t('⏳ Learning in progress …') : ($gelernt !== '' ? IRHubText::t('✅ Learned code ready: %s', IRHubCode::beschreibung(IRHubCode::ausBase64($gelernt))) : IRHubText::t('ℹ️ Ready. First choose below what to learn for, then press the learn button.'))],
             ['type' => 'RowLayout', 'name' => 'GelerntZeile', 'visible' => $gelernt !== '', 'items' => array_values(array_filter([
-                ['type' => 'Button', 'caption' => '▶️ Testen', 'onClick' => 'echo ' . $this->irhubPrefix() . '_GelerntTesten($id);'],
-                $speichernKnopf === '' ? null : ['type' => 'Button', 'caption' => '💾 Speichern', 'onClick' => $speichernKnopf],
-                ['type' => 'Button', 'caption' => '🗑 Verwerfen', 'onClick' => 'echo ' . $this->irhubPrefix() . '_GelerntVerwerfen($id);'],
+                ['type' => 'Button', 'caption' => IRHubText::t('▶️ Test'), 'onClick' => 'echo ' . $this->irhubPrefix() . '_GelerntTesten($id);'],
+                $speichernKnopf === '' ? null : ['type' => 'Button', 'caption' => IRHubText::t('💾 Save'), 'onClick' => $speichernKnopf],
+                ['type' => 'Button', 'caption' => IRHubText::t('🗑 Discard'), 'onClick' => 'echo ' . $this->irhubPrefix() . '_GelerntVerwerfen($id);'],
             ]))],
         ];
     }

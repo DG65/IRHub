@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/IRHubText.php';
+
 // ===========================================================================
 // IR-/Funk-Codes: Einlesen, Umrechnen, Beschreiben — ohne Netz, ohne Symcon.
 //
@@ -36,19 +38,19 @@ class IRHubCode
             $text = substr($text, 4);
         }
         if ($text === '') {
-            return ['fehler' => 'Kein Code angegeben.'];
+            return ['fehler' => IRHubText::t('No code given.')];
         }
         // Pronto Hex: Vierergruppen, beginnt mit 0000.
         if (preg_match('/^0000(\s+[0-9a-fA-F]{4}){3,}$/', $text)) {
             $pulse = self::prontoZuPulse($text);
-            return $pulse === null ? ['fehler' => 'Pronto-Code konnte nicht gelesen werden.'] : ['paket' => self::pulseZuPaket($pulse), 'format' => 'Pronto Hex'];
+            return $pulse === null ? ['fehler' => IRHubText::t('Pronto code could not be read.')] : ['paket' => self::pulseZuPaket($pulse), 'format' => 'Pronto Hex'];
         }
         // Rohe Pulsfolge in µs, z. B. „9000, -4500, 560 …" oder „+9000 -4500 …".
         if (preg_match('/^[+\-]?\d+([\s,;]+[+\-]?\d+){3,}$/', $text) && !preg_match('/^[0-9a-fA-F]+$/', $text)) {
             $pulse = array_map(static function ($w) {
                 return abs((int)$w);
             }, preg_split('/[\s,;]+/', $text) ?: []);
-            return ['paket' => self::pulseZuPaket($pulse), 'format' => 'Pulsfolge (µs)'];
+            return ['paket' => self::pulseZuPaket($pulse), 'format' => IRHubText::t('Pulse sequence (µs)')];
         }
         $hex = preg_replace('/\s+/', '', $text);
         if (preg_match('/^[0-9a-fA-F]+$/', (string)$hex) && strlen((string)$hex) % 2 === 0 && strlen((string)$hex) >= 8) {
@@ -61,7 +63,7 @@ class IRHubCode
         if (is_string($roh) && strlen($roh) >= 4 && self::typBekannt(ord($roh[0]))) {
             return ['paket' => self::zuschneiden($roh), 'format' => 'Base64'];
         }
-        return ['fehler' => 'Format nicht erkannt. Erwartet wird Broadlink-Base64 („JgC…"), Hex, Pronto Hex („0000 006D …") oder eine Pulsfolge in µs.'];
+        return ['fehler' => IRHubText::t('Format not recognized. Expected is Broadlink Base64 ("JgC…"), hex, Pronto Hex ("0000 006D …") or a pulse sequence in µs.')];
     }
 
     public static function typBekannt(int $typ): bool
@@ -245,10 +247,10 @@ class IRHubCode
         }, array_slice($b, 0, 5))));
         $summeOk = $n > 1 && (array_sum(array_slice($b, 0, $n - 1)) & 0xFF) === $b[$n - 1];
         if ($hex === '23CB260100' && $n === 14) {
-            return 'TCL112 (TCL und viele Baugleiche)' . ($summeOk ? ', Prüfsumme stimmt' : '');
+            return IRHubText::t('TCL112 (TCL and many identical models)') . ($summeOk ? IRHubText::t(', checksum correct') : '');
         }
         if ($hex === '23CB260100' && $n === 18) {
-            return 'Mitsubishi Electric' . ($summeOk ? ', Prüfsumme stimmt' : '');
+            return 'Mitsubishi Electric' . ($summeOk ? IRHubText::t(', checksum correct') : '');
         }
         if (strpos($hex, '11DA27') === 0) {
             return 'Daikin';
@@ -256,7 +258,7 @@ class IRHubCode
         if (strpos($hex, '0220E004') === 0) {
             return 'Panasonic';
         }
-        return sprintf('unbekanntes Klima-Protokoll (%d Bytes, Kopf %d/%d µs)', $n, $analyse['kopf'][0], $analyse['kopf'][1]);
+        return IRHubText::t('unknown AC protocol (%d bytes, header %d/%d µs)', $n, $analyse['kopf'][0], $analyse['kopf'][1]);
     }
 
     /**
@@ -433,15 +435,15 @@ class IRHubCode
     public static function beschreibung(string $paket): string
     {
         if (strlen($paket) < 4) {
-            return 'leer';
+            return IRHubText::t('empty');
         }
         $typ = ord($paket[0]);
-        $art = $typ === self::TYP_IR ? 'Infrarot' : ((($typ & 0xF0) === 0xD0) ? 'Funk 315 MHz' : 'Funk 433 MHz');
+        $art = $typ === self::TYP_IR ? IRHubText::t('Infrared') : ((($typ & 0xF0) === 0xD0) ? IRHubText::t('RF 315 MHz') : IRHubText::t('RF 433 MHz'));
         if ($typ === self::TYP_RM4_RF && strlen($paket) >= 8) {
-            $art = sprintf('Funk %.2f MHz', unpack('V', substr($paket, 4, 4))[1] / 1000);
+            $art = IRHubText::t('RF %s MHz', sprintf('%.2f', unpack('V', substr($paket, 4, 4))[1] / 1000));
         }
         $pulse = self::paketZuPulse($paket);
         $dauer = array_sum($pulse) / 1000;
-        return sprintf('%s, %d Pulse, %s ms', $art, count($pulse), number_format($dauer, 0, ',', '.'));
+        return IRHubText::t('%s, %d pulses, %s ms', $art, count($pulse), number_format($dauer, 0, IRHubText::dezimal(), IRHubText::tausender()));
     }
 }

@@ -28,7 +28,25 @@ class IRHubKlima extends IPSModule
     use IRHubFormular;
     use IRHubLernen;
 
+    public function __construct(int $InstanceID)
+    {
+        parent::__construct($InstanceID);
+        // Bibliotheken und Kachel übersetzen über IRHubText (englische Quelltexte, Deutsch in locale.json).
+        IRHubText::setzen(function (string $text): string {
+            return $this->Translate($text);
+        });
+    }
+
     private const MODI_STANDARD = 'cool,heat';
+
+    /** Texte der Kachel (module.html schlägt sie per T() nach; Deutsch aus locale.json). */
+    private const KACHEL_TEXTE = [
+        'language code: en', '📤 sending …', '⛔ No connection to the visualization',
+        'No codes yet. Load a code table or learn codes in the instance.', 'Room', 'On', 'Off', 'colder', 'warmer',
+        'Target temperature', 'off · target %s °C', 'Mode', 'Fan', 'last sent %s', 'nothing sent yet',
+        'The unit reports nothing back via infrared. Sends the last selected state once more, e.g. after someone used the original remote.',
+        '↻ Send again', '📤 sending again …',
+    ];
 
     public function Create()
     {
@@ -142,14 +160,14 @@ class IRHubKlima extends IPSModule
     {
         [$id, $quelle] = $this->raumQuelle();
         $t = $this->raumTemperatur();
-        $wert = $t === null ? 'noch kein Wert' : $this->zahl($t) . ' °C';
+        $wert = $t === null ? IRHubText::t('no value yet') : $this->zahl($t) . ' °C';
         if ($quelle === 'broadlink') {
-            return ['🔗 Raumtemperatur: ' . $wert . ' — automatisch vom Temperatursensor des Broadlink-Geräts „' . IPS_GetName((int)IPS_GetParent($id)) . '".', 0x2E8B3D];
+            return [IRHubText::t('🔗 Room temperature: %s — automatically from the temperature sensor of the Broadlink device "%s".', $wert, IPS_GetName((int)IPS_GetParent($id))), 0x2E8B3D];
         }
         if ($quelle === 'eigen') {
-            return ['✏️ Raumtemperatur: ' . $wert . ' — aus der gewählten Variable „' . IPS_GetName($id) . '" (#' . $id . ').', -1];
+            return [IRHubText::t('✏️ Room temperature: %s — from the selected variable "%s" (#%s).', $wert, IPS_GetName($id), $id), -1];
         }
-        return ['ℹ️ Der Broadlink hat keinen Temperatursensor. Optional eine Temperaturvariable des Raums wählen — die Kachel zeigt sie dann zum Vergleich mit der Solltemperatur.', -1];
+        return [IRHubText::t('ℹ️ The Broadlink has no temperature sensor. Optionally select a temperature variable of the room — the tile then shows it for comparison with the target temperature.'), -1];
     }
 
     // ------------------------------------------------------------------ Kachel
@@ -165,7 +183,7 @@ class IRHubKlima extends IPSModule
         $z = $this->zustand();
         $modi = [];
         foreach ($tab['betriebsarten'] as $m) {
-            $modi[] = ['key' => $m, 'name' => IRHubKlimaTabelle::BETRIEBSARTEN[$m][1], 'symbol' => IRHubKlimaTabelle::SYMBOLE[$m] ?? '•'];
+            $modi[] = ['key' => $m, 'name' => IRHubKlimaTabelle::betriebsartName($m), 'symbol' => IRHubKlimaTabelle::SYMBOLE[$m] ?? '•'];
         }
         $luefter = [];
         foreach ($tab['luefter'] as $l) {
@@ -182,6 +200,7 @@ class IRHubKlima extends IPSModule
             'bereit' => count($modi) > 0,
             'farbschema' => $this->ReadPropertyInteger('Farbschema'),
             'rueck' => $rueck,
+            'texte' => array_combine(self::KACHEL_TEXTE, array_map([IRHubText::class, 't'], self::KACHEL_TEXTE)),
         ]);
     }
 
@@ -233,7 +252,7 @@ class IRHubKlima extends IPSModule
     {
         $nr = $this->ReadPropertyInteger('SmartIRNr');
         if ($nr <= 0) {
-            return 'ℹ️ Bitte zuerst ein Modell auswählen und „Übernehmen" klicken.';
+            return IRHubText::t('ℹ️ Please select a model first and click "Apply".');
         }
         return $this->tabelleVonGitHub($nr);
     }
@@ -242,8 +261,8 @@ class IRHubKlima extends IPSModule
     {
         $json = IRHubKlimaTabelle::herunterladen($nr);
         if ($json === null) {
-            $this->LogMessage('SmartIR-Tabelle ' . $nr . ' nicht ladbar (GitHub nicht erreichbar?)', KL_WARNING);
-            return '⛔ Tabelle ' . $nr . ' ließ sich nicht von GitHub laden. Internetzugang prüfen — oder die JSON-Datei unten von Hand hochladen.';
+            $this->LogMessage(IRHubText::t('SmartIR table %s could not be loaded (GitHub not reachable?)', $nr), KL_WARNING);
+            return IRHubText::t('⛔ Table %s could not be loaded from GitHub. Check internet access — or upload the JSON file below by hand.', $nr);
         }
         return $this->tabelleUebernehmen($json);
     }
@@ -253,7 +272,7 @@ class IRHubKlima extends IPSModule
     {
         $json = base64_decode($DateiBase64, true);
         if (!is_string($json) || $json === '') {
-            return 'ℹ️ Bitte zuerst eine Datei auswählen.';
+            return IRHubText::t('ℹ️ Please select a file first.');
         }
         return $this->tabelleUebernehmen($json);
     }
@@ -267,11 +286,10 @@ class IRHubKlima extends IPSModule
         $this->WriteAttributeString('TabelleSmartIR', (string)json_encode($r['tabelle']));
         $tab = $r['tabelle'];
         [$da] = IRHubKlimaTabelle::abdeckung($tab);
-        $text = '✅ Tabelle übernommen: ' . trim($tab['hersteller'] . ' ' . implode(', ', $tab['modelle'])) . ' — ' . $da . ' Codes, '
-            . count($tab['betriebsarten']) . ' Betriebsarten, ' . count($tab['luefter']) . ' Lüfterstufen, '
-            . $this->zahl($tab['minTemp']) . '–' . $this->zahl($tab['maxTemp']) . ' °C.';
+        $text = IRHubText::t('✅ Table applied: %s — %s codes, %s modes, %s fan levels, %s–%s °C.', trim($tab['hersteller'] . ' ' . implode(', ', $tab['modelle'])), $da,
+            count($tab['betriebsarten']), count($tab['luefter']), $this->zahl($tab['minTemp']), $this->zahl($tab['maxTemp']));
         if ($this->ReadPropertyString('Quelle') !== 'smartir') {
-            $text .= ' ℹ️ Damit sie gilt, oben „Codetabelle (SmartIR)" wählen und „Übernehmen".';
+            $text .= ' ' . IRHubText::t('ℹ️ To make it apply, select "Code table (SmartIR)" above and click "Apply".');
         } else {
             $this->variablenPflegen($tab);
             $this->SetStatus(102);
@@ -301,19 +319,26 @@ class IRHubKlima extends IPSModule
         $paket = IRHubCode::ausBase64($code);
         $a = IRHubCode::analysieren($paket);
         if ($a === null || count($a['bytes']) < 4) {
-            $ergebnis = ['text' => 'ℹ️ Dieser Code ist kein byteweise lesbares Klima-Signal (' . IRHubCode::beschreibung($paket) . ') — keine Tabelle vorschlagbar, bitte selbst lernen.', 'vorschlaege' => []];
+            $meldung = ['ℹ️ This code is not a byte-readable climate signal (%s) — no table can be suggested, please learn it yourself.', IRHubCode::beschreibung($paket)];
+            $ergebnis = ['vorschlaege' => []];
         } else {
             $verzeichnis = json_decode((string)@file_get_contents(__DIR__ . '/../libs/IRHubSmartIR.json'), true);
             $v = array_slice(IRHubKlimaTabelle::vorschlaege($a, is_array($verzeichnis) ? $verzeichnis : []), 0, 12);
             $protokoll = IRHubCode::protokollName($a);
-            $text = count($v) === 0
-                ? '🔍 Protokoll: ' . $protokoll . '. Keine SmartIR-Tabelle passt — selbst lernen ist hier der Weg.'
-                : '🔍 Protokoll: ' . $protokoll . '. ' . count($v) . ' Codetabelle' . (count($v) === 1 ? '' : 'n') . ' passen zum Aufbau — die oberste zuerst probieren: '
-                    . implode(', ', array_map(static function ($t) {
-                        return $t['hersteller'] . ' (' . $t['nr'] . ')';
-                    }, array_slice($v, 0, 4))) . (count($v) > 4 ? ' …' : '') . '. Ob Lüfter und Lamellen genau passen, zeigt erst der Test.';
-            $ergebnis = ['text' => $text, 'vorschlaege' => $v];
+            $liste = implode(', ', array_map(static function ($t) {
+                return $t['hersteller'] . ' (' . $t['nr'] . ')';
+            }, array_slice($v, 0, 4))) . (count($v) > 4 ? ' …' : '');
+            if (count($v) === 0) {
+                $meldung = ['🔍 Protocol: %s. No SmartIR table fits — learning it yourself is the way here.', $protokoll];
+            } elseif (count($v) === 1) {
+                $meldung = ['🔍 Protocol: %s. 1 code table matches the structure: %s. Only a test shows whether fan and louvres match exactly.', $protokoll, $liste];
+            } else {
+                $meldung = ['🔍 Protocol: %s. %s code tables match the structure — try the top one first: %s. Only a test shows whether fan and louvres match exactly.', $protokoll, count($v), $liste];
+            }
+            $ergebnis = ['vorschlaege' => $v];
         }
+        // Englische Quelle + Werte mitspeichern: die Zeile erscheint so später in der jeweils eingestellten Sprache.
+        $ergebnis = ['text' => IRHubText::t(...$meldung), 'meldung' => $meldung] + $ergebnis;
         $this->WriteAttributeString('Analyse', (string)json_encode($ergebnis));
         $this->UpdateFormField('AnalyseZeile', 'caption', $ergebnis['text']);
         $this->UpdateFormField('VorschlagNr', 'options', (string)json_encode($this->vorschlagOptionen($ergebnis['vorschlaege'])));
@@ -338,7 +363,7 @@ class IRHubKlima extends IPSModule
     public function VorschlagLaden(int $Nr): string
     {
         if ($Nr <= 0) {
-            return 'ℹ️ Bitte zuerst einen Vorschlag auswählen.';
+            return IRHubText::t('ℹ️ Please select a suggestion first.');
         }
         $text = $this->tabelleVonGitHub($Nr);
         if (strpos($text, '✅') !== 0) {
@@ -347,7 +372,7 @@ class IRHubKlima extends IPSModule
         if ($this->ReadPropertyString('Quelle') !== 'smartir' || $this->ReadPropertyInteger('SmartIRNr') !== $Nr) {
             $this->UpdateFormField('Quelle', 'value', 'smartir');
             $this->UpdateFormField('SmartIRNr', 'value', $Nr);
-            return '✅ Tabelle ' . $Nr . ' geladen. Oben sind „Codetabelle (SmartIR)" und das Modell schon eingetragen — jetzt nur noch „Übernehmen" klicken, dann gilt sie.';
+            return IRHubText::t('✅ Table %s loaded. "Code table (SmartIR)" and the model are already filled in above — now just click "Apply" and it takes effect.', $Nr);
         }
         return $text;
     }
@@ -372,8 +397,9 @@ class IRHubKlima extends IPSModule
             return;
         }
         if ($Ident === 'KachelWiederholen') {
-            [, $meldung] = $this->zustandSenden($this->zustand());
-            $this->kachelAktualisieren($meldung === '' ? '' : str_replace(' gesendet.', ' erneut gesendet.', $meldung));
+            $z = $this->zustand();
+            [$ok, $meldung] = $this->zustandSenden($z);
+            $this->kachelAktualisieren($ok ? IRHubText::t('✅ %s sent again.', $this->zustandText($z)) : $meldung);
             return;
         }
         $z = $this->zustand();
@@ -384,7 +410,7 @@ class IRHubKlima extends IPSModule
             case 'Betriebsart':
                 $modus = $this->modusVonWert((int)$Value, $this->tabelle()['betriebsarten']);
                 if ($modus === null) {
-                    throw new Exception('Unbekannte Betriebsart ' . $Value);
+                    throw new Exception(IRHubText::t('Unknown mode %s', $Value));
                 }
                 $z['modus'] = $modus;
                 $z['ein'] = true;
@@ -396,12 +422,12 @@ class IRHubKlima extends IPSModule
                 $tab = $this->tabelle();
                 $l = $tab['luefter'][(int)$Value] ?? null;
                 if ($l === null) {
-                    throw new Exception('Unbekannte Lüfterstufe ' . $Value);
+                    throw new Exception(IRHubText::t('Unknown fan level %s', $Value));
                 }
                 $z['luefter'] = $l;
                 break;
             default:
-                throw new Exception('Unbekannte Aktion ' . $Ident);
+                throw new Exception(IRHubText::t('Unknown action %s', $Ident));
         }
         [$ok, $meldung] = $this->zustandSenden($z);
         if (!$ok) {
@@ -448,8 +474,9 @@ class IRHubKlima extends IPSModule
         $z['temp'] = max((float)$tab['minTemp'], min((float)$tab['maxTemp'], (float)$z['temp']));
         $code = IRHubKlimaTabelle::code($tab, (bool)$z['ein'], (string)$z['modus'], (string)$z['luefter'], (float)$z['temp']);
         if ($code === null) {
-            return [false, '⚠️ Für „' . $this->zustandText($z) . '" gibt es noch keinen Code. '
-                . ($tab['quelle'] === 'gelernt' ? 'In der Instanz unter „Codes lernen" nachlernen.' : 'Die gewählte Codetabelle kennt diese Kombination nicht.')];
+            return [false, $tab['quelle'] === 'gelernt'
+                ? IRHubText::t('⚠️ There is no code yet for "%s". Learn it in the instance under "Learn codes".', $this->zustandText($z))
+                : IRHubText::t('⚠️ There is no code yet for "%s". The selected code table does not know this combination.', $this->zustandText($z))];
         }
         [$ok, $meldung] = $this->codeSenden($code);
         if (!$ok) {
@@ -458,7 +485,7 @@ class IRHubKlima extends IPSModule
         $this->WriteAttributeString('Zustand', (string)json_encode($z + ['zeit' => time()]));
         $this->variablenSetzen($z, $tab);
         $this->kachelAktualisieren('');
-        return [true, '✅ ' . $this->zustandText($z) . ' gesendet.'];
+        return [true, IRHubText::t('✅ %s sent.', $this->zustandText($z))];
     }
 
     private function zustand(): array
@@ -478,9 +505,9 @@ class IRHubKlima extends IPSModule
     private function zustandText(array $z): string
     {
         if (!$z['ein']) {
-            return 'Aus';
+            return IRHubText::t('Off');
         }
-        return (IRHubKlimaTabelle::BETRIEBSARTEN[$z['modus']][1] ?? $z['modus']) . ', Lüfter ' . IRHubKlimaTabelle::luefterName($z['luefter']) . ', ' . $this->zahl($z['temp']) . ' °C';
+        return IRHubText::t('%s, fan %s, %s °C', IRHubKlimaTabelle::betriebsartName((string)$z['modus']), IRHubKlimaTabelle::luefterName((string)$z['luefter']), $this->zahl((float)$z['temp']));
     }
 
     /** Wert der Variable → Betriebsart, wie die aktuelle Tabelle sie schreibt (fan oder fan_only). */
@@ -498,17 +525,17 @@ class IRHubKlima extends IPSModule
 
     private function variablenPflegen(array $tab): void
     {
-        $this->MaintainVariable('Ein', 'Ein/Aus', VARIABLETYPE_BOOLEAN, ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH], 1, true);
+        $this->MaintainVariable('Ein', IRHubText::t('On/Off'), VARIABLETYPE_BOOLEAN, ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH], 1, true);
         $this->EnableAction('Ein');
         $modi = [];
         foreach ($tab['betriebsarten'] as $m) {
-            $modi[] = ['Value' => IRHubKlimaTabelle::BETRIEBSARTEN[$m][0], 'Caption' => IRHubKlimaTabelle::BETRIEBSARTEN[$m][1], 'IconActive' => false, 'IconValue' => '', 'Color' => -1];
+            $modi[] = ['Value' => IRHubKlimaTabelle::BETRIEBSARTEN[$m][0], 'Caption' => IRHubKlimaTabelle::betriebsartName($m), 'IconActive' => false, 'IconValue' => '', 'Color' => -1];
         }
-        $this->MaintainVariable('Betriebsart', 'Betriebsart', VARIABLETYPE_INTEGER, ['PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION, 'OPTIONS' => json_encode($modi)], 2, count($modi) > 0);
+        $this->MaintainVariable('Betriebsart', IRHubText::t('Mode'), VARIABLETYPE_INTEGER, ['PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION, 'OPTIONS' => json_encode($modi)], 2, count($modi) > 0);
         if (count($modi) > 0) {
             $this->EnableAction('Betriebsart');
         }
-        $this->MaintainVariable('Solltemperatur', 'Solltemperatur', VARIABLETYPE_FLOAT, [
+        $this->MaintainVariable('Solltemperatur', IRHubText::t('Target temperature'), VARIABLETYPE_FLOAT, [
             'PRESENTATION' => VARIABLE_PRESENTATION_SLIDER, 'MIN' => (float)$tab['minTemp'], 'MAX' => (float)$tab['maxTemp'],
             'STEP_SIZE' => (float)$tab['schritt'], 'SUFFIX' => ' °C', 'DIGITS' => fmod((float)$tab['schritt'], 1.0) == 0.0 ? 0 : 1,
         ], 3, true);
@@ -517,7 +544,7 @@ class IRHubKlima extends IPSModule
         foreach ($tab['luefter'] as $i => $l) {
             $luefter[] = ['Value' => $i, 'Caption' => IRHubKlimaTabelle::luefterName($l), 'IconActive' => false, 'IconValue' => '', 'Color' => -1];
         }
-        $this->MaintainVariable('Luefter', 'Lüfter', VARIABLETYPE_INTEGER, ['PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION, 'OPTIONS' => json_encode($luefter)], 4, count($luefter) > 1);
+        $this->MaintainVariable('Luefter', IRHubText::t('Fan'), VARIABLETYPE_INTEGER, ['PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION, 'OPTIONS' => json_encode($luefter)], 4, count($luefter) > 1);
         if (count($luefter) > 1) {
             $this->EnableAction('Luefter');
         }
@@ -542,7 +569,7 @@ class IRHubKlima extends IPSModule
     /** Alle Kombinationen der Lerntabelle in Lernreihenfolge: Aus zuerst. */
     private function kombinationen(array $tab): array
     {
-        $aus = ['off' => 'Aus'];
+        $aus = ['off' => IRHubText::t('Off')];
         foreach ($tab['betriebsarten'] as $m) {
             foreach ($tab['luefter'] as $l) {
                 foreach (IRHubKlimaTabelle::temperaturen((float)$tab['minTemp'], (float)$tab['maxTemp'], (float)$tab['schritt']) as $t) {
@@ -573,17 +600,17 @@ class IRHubKlima extends IPSModule
     {
         $tab = $this->tabelle();
         if ($tab['quelle'] !== 'gelernt') {
-            return 'ℹ️ Es gilt die SmartIR-Codetabelle — Lernen ist nur bei „Selbst gelernte Codes" nötig.';
+            return IRHubText::t('ℹ️ The SmartIR code table applies — learning is only needed with "Self-learned codes".');
         }
         $ziel = $this->ReadAttributeString('Ziel');
         $kombis = $this->kombinationen($tab);
         if ($ziel === '' || !isset($kombis[$ziel])) {
-            return '✅ Alle ' . count($kombis) . ' Kombinationen sind gelernt.';
+            return IRHubText::t('✅ All %s combinations are learned.', count($kombis));
         }
         $anleitung = $ziel === 'off'
-            ? 'Original-Fernbedienung auf das Broadlink-Gerät richten, „Infrarot lernen" klicken und die AUS-Taste drücken.'
-            : 'An der Original-Fernbedienung genau „' . $kombis[$ziel] . '" einstellen (Anlage dabei eingeschaltet lassen), „Infrarot lernen" klicken und dann eine Taste drücken, die diesen Zustand sendet — z. B. Temperatur einmal hoch und wieder runter.';
-        return '🎯 Als Nächstes: „' . $kombis[$ziel] . '". ' . $anleitung;
+            ? IRHubText::t('Point the original remote at the Broadlink device, click "Learn infrared" and press the OFF button.')
+            : IRHubText::t('Set exactly "%s" on the original remote (keep the unit switched on), click "Learn infrared" and then press a button that sends this state — e.g. temperature up once and back down.', $kombis[$ziel]);
+        return IRHubText::t('🎯 Next: "%s". %s', $kombis[$ziel], $anleitung);
     }
 
     /** Gelernten Code der aktuellen Ziel-Kombination zuordnen und zur nächsten fehlenden springen. */
@@ -592,10 +619,10 @@ class IRHubKlima extends IPSModule
         $code = $this->ReadAttributeString('Gelernt');
         $ziel = $this->ReadAttributeString('Ziel');
         if ($code === '') {
-            return 'ℹ️ Es liegt kein gelernter Code vor.';
+            return IRHubText::t('ℹ️ There is no learned code.');
         }
         if ($ziel === '') {
-            return 'ℹ️ Alle Kombinationen sind schon gelernt. Zum Überschreiben eine Zeile in der Liste wählen und „Diese Kombination lernen".';
+            return IRHubText::t('ℹ️ All combinations are already learned. To overwrite one, select a row in the list and click "Learn this combination".');
         }
         $codes = $this->codesGelernt();
         $codes[$ziel] = $code;
@@ -607,8 +634,8 @@ class IRHubKlima extends IPSModule
         $this->gelerntAnzeigen();
         $this->UpdateFormField('ZielZeile', 'caption', $this->zielText());
         $this->UpdateFormField('KombiListe', 'values', (string)json_encode($this->kombiWerte($tab)));
-        $this->lernAnzeige('✅ „' . $name . '" gespeichert.');
-        return '✅ „' . $name . '" gespeichert. ' . $this->zielText();
+        $this->lernAnzeige(IRHubText::t('✅ "%s" saved.', $name));
+        return IRHubText::t('✅ "%s" saved.', $name) . ' ' . $this->zielText();
     }
 
     public function ZielWaehlen(string $Schluessel): string
@@ -616,18 +643,18 @@ class IRHubKlima extends IPSModule
         $tab = $this->tabelle();
         $kombis = $this->kombinationen($tab);
         if (!isset($kombis[$Schluessel])) {
-            return 'ℹ️ Bitte zuerst eine Zeile in der Liste auswählen.';
+            return IRHubText::t('ℹ️ Please select a row in the list first.');
         }
         $this->WriteAttributeString('Ziel', $Schluessel);
         $this->UpdateFormField('ZielZeile', 'caption', $this->zielText());
-        return '🎯 Als Nächstes wird „' . $kombis[$Schluessel] . '" gelernt.';
+        return IRHubText::t('🎯 "%s" will be learned next.', $kombis[$Schluessel]);
     }
 
     public function KombinationTesten(string $Schluessel): string
     {
         $code = $this->codesGelernt()[$Schluessel] ?? '';
         if ($code === '') {
-            return 'ℹ️ Für diese Zeile ist noch kein Code gelernt.';
+            return IRHubText::t('ℹ️ No code has been learned for this row yet.');
         }
         return $this->codeSenden($code)[1];
     }
@@ -636,13 +663,13 @@ class IRHubKlima extends IPSModule
     {
         $codes = $this->codesGelernt();
         if (!isset($codes[$Schluessel])) {
-            return 'ℹ️ Für diese Zeile ist kein Code gespeichert.';
+            return IRHubText::t('ℹ️ No code is saved for this row.');
         }
         unset($codes[$Schluessel]);
         $this->WriteAttributeString('CodesGelernt', (string)json_encode($codes));
         $tab = $this->tabelle();
         $this->UpdateFormField('KombiListe', 'values', (string)json_encode($this->kombiWerte($tab)));
-        return '✅ Code gelöscht.';
+        return IRHubText::t('✅ Code deleted.');
     }
 
     private function kombiWerte(array $tab): array
@@ -650,7 +677,7 @@ class IRHubKlima extends IPSModule
         $codes = $this->codesGelernt();
         $werte = [];
         foreach ($this->kombinationen($tab) as $k => $text) {
-            $werte[] = ['schluessel' => $k, 'zustand' => $text, 'stand' => ($codes[$k] ?? '') !== '' ? '✅ gelernt' : '—'];
+            $werte[] = ['schluessel' => $k, 'zustand' => $text, 'stand' => ($codes[$k] ?? '') !== '' ? IRHubText::t('✅ learned') : '—'];
         }
         return $werte;
     }
@@ -665,19 +692,19 @@ class IRHubKlima extends IPSModule
     protected function irhubZweck(): array
     {
         return [
-            'Macht aus einer Infrarot-Klimaanlage (Split-Gerät, Monoblock, mobiles Klimagerät) ein steuerbares Gerät in Symcon: Ein/Aus, Betriebsart, Solltemperatur und Lüfter — für Visualisierung, Zeitpläne und Automationen.',
-            'Klima-Fernbedienungen senden immer den kompletten Zustand. Deshalb braucht es je Kombination einen Code: selbst gelernt (Assistent) oder aus einer fertigen Codetabelle für dein Modell.',
+            IRHubText::t('Turns an infrared air conditioner (split unit, monoblock, portable unit) into a controllable device in Symcon: on/off, mode, target temperature and fan — for visualization, schedules and automations.'),
+            IRHubText::t('Air conditioner remotes always send the complete state. That is why each combination needs its own code: learned yourself (assistant) or from a ready-made code table for your model.'),
         ];
     }
 
     protected function irhubDoku(): array
     {
         return [
-            'Codetabelle: Steht dein Modell in der Liste, „Codetabelle (SmartIR)" wählen, Modell wählen, „Übernehmen", dann „Codetabelle laden". Die Tabellen stammen aus dem Projekt SmartIR (MIT-Lizenz) und werden bei Bedarf von GitHub geholt.',
-            'Selbst lernen: Betriebsarten, Lüfterstufen und Temperaturbereich so knapp wie möglich wählen (jede Kombination ist ein Code). Der Assistent zeigt, welcher Zustand als Nächstes an der Original-Fernbedienung einzustellen ist.',
-            'Die Anlage meldet per Infrarot nichts zurück. Wurde sie mit der Original-Fernbedienung verstellt, zeigt Symcon weiter den zuletzt hier gesendeten Zustand.',
-            'Kachel: Die Instanz in der Kachel-Visualisierung platzieren. −/+ ändern die Solltemperatur (kurz warten, dann wird gesendet), die Symbole wählen die Betriebsart. „Erneut senden" schickt den letzten Zustand noch einmal, z. B. nachdem jemand die Original-Fernbedienung benutzt hat.',
-            'Skripte: IRKLIMA_Setzen($id, true, "cool", 23, "auto"), IRKLIMA_Ausschalten($id), IRKLIMA_Wiederholen($id) — alle liefern true/false.',
+            IRHubText::t('Code table: if your model is in the list, select "Code table (SmartIR)", select the model, click "Apply", then "Load code table". The tables come from the SmartIR project (MIT license) and are fetched from GitHub when needed.'),
+            IRHubText::t('Learning yourself: choose modes, fan levels and temperature range as narrowly as possible (each combination is one code). The assistant shows which state to set next on the original remote.'),
+            IRHubText::t('The unit reports nothing back via infrared. If it was changed with the original remote, Symcon keeps showing the state last sent from here.'),
+            IRHubText::t('Tile: place the instance in the tile visualization. −/+ change the target temperature (wait a moment, then it is sent), the symbols select the mode. "Send again" sends the last state once more, e.g. after someone used the original remote.'),
+            IRHubText::t('Scripts: %s — all return true/false.', 'IRKLIMA_Setzen($id, true, "cool", 23, "auto"), IRKLIMA_Ausschalten($id), IRKLIMA_Wiederholen($id)'),
         ];
     }
 
@@ -686,108 +713,122 @@ class IRHubKlima extends IPSModule
         $tab = $this->tabelle();
         [$da, $alle] = IRHubKlimaTabelle::abdeckung($tab);
         $smartir = $this->ReadPropertyString('Quelle') === 'smartir';
-        $modelle = [['caption' => '— bitte wählen —', 'value' => 0]];
+        $modelle = [['caption' => IRHubText::t('— please select —'), 'value' => 0]];
         $verzeichnis = json_decode((string)@file_get_contents(__DIR__ . '/../libs/IRHubSmartIR.json'), true);
         foreach (is_array($verzeichnis) ? $verzeichnis : [] as $e) {
             $modelle[] = ['caption' => mb_substr($e['hersteller'] . ' – ' . $e['modelle'], 0, 90) . ' (' . $e['nr'] . ')', 'value' => (int)$e['nr']];
         }
         $modusOptionen = [];
-        foreach (IRHubKlimaTabelle::BETRIEBSARTEN as $m => [, $name]) {
-            $modusOptionen[] = $m . ' = ' . $name;
+        foreach (array_keys(IRHubKlimaTabelle::BETRIEBSARTEN) as $m) {
+            $modusOptionen[] = $m . ' = ' . IRHubKlimaTabelle::betriebsartName($m);
         }
         [$raumText, $raumFarbe] = $this->raumZeile();
         [, $raumQuelle] = $this->raumQuelle();
-        $raumFeld = ['type' => 'SelectVariable', 'name' => 'RaumTemperaturID', 'caption' => 'Temperaturvariable des Raums (optional)', 'width' => '500px'];
+        $raumFeld = ['type' => 'SelectVariable', 'name' => 'RaumTemperaturID', 'caption' => IRHubText::t('Temperature variable of the room (optional)'), 'width' => '500px'];
         $fach = [
-            'kachel' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📱  Kachel und Raumtemperatur', 'items' => [
-                ['type' => 'Label', 'caption' => 'Diese Instanz ist selbst eine Kachel für die Kachel-Visualisierung: Solltemperatur mit −/+, Ein/Aus, Betriebsart, Lüfter und die Raumtemperatur zum Vergleich.'],
+            'kachel' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => IRHubText::t('📱  Tile and room temperature'), 'items' => [
+                ['type' => 'Label', 'caption' => IRHubText::t('This instance is itself a tile for the tile visualization: target temperature with −/+, on/off, mode, fan and the room temperature for comparison.')],
                 ['type' => 'Label', 'caption' => $raumText, 'color' => $raumFarbe],
                 // Kommt der Wert automatisch, wird das Feld nicht gezeigt, sondern nur als bewusstes Überschreiben angeboten.
                 $raumQuelle === 'broadlink'
-                    ? ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => 'Eigene Temperaturvariable stattdessen verwenden', 'items' => [$raumFeld]]
+                    ? ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => IRHubText::t('Use your own temperature variable instead'), 'items' => [$raumFeld]]
                     : $raumFeld,
-                ['type' => 'Select', 'name' => 'Farbschema', 'caption' => 'Farben der Kachel', 'options' => [
-                    ['caption' => 'automatisch (wie die Visualisierung)', 'value' => 0],
-                    ['caption' => 'hell', 'value' => 1],
-                    ['caption' => 'dunkel', 'value' => 2],
+                ['type' => 'Select', 'name' => 'Farbschema', 'caption' => IRHubText::t('Tile colors'), 'options' => [
+                    ['caption' => IRHubText::t('automatic (like the visualization)'), 'value' => 0],
+                    ['caption' => IRHubText::t('light'), 'value' => 1],
+                    ['caption' => IRHubText::t('dark'), 'value' => 2],
                 ]],
             ]],
-            'quelle' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '❄️  Codequelle', 'items' => [
-                ['type' => 'Select', 'name' => 'Quelle', 'caption' => 'Woher kommen die Codes?', 'options' => [
-                    ['caption' => 'Selbst gelernte Codes (geht mit jeder Anlage)', 'value' => 'gelernt'],
-                    ['caption' => 'Codetabelle (SmartIR) für mein Modell', 'value' => 'smartir'],
+            'quelle' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('❄️  Code source'), 'items' => [
+                ['type' => 'Select', 'name' => 'Quelle', 'caption' => IRHubText::t('Where do the codes come from?'), 'options' => [
+                    ['caption' => IRHubText::t('Self-learned codes (works with any unit)'), 'value' => 'gelernt'],
+                    ['caption' => IRHubText::t('Code table (SmartIR) for my model'), 'value' => 'smartir'],
                 ]],
-                ['type' => 'Label', 'caption' => ($da > 0 ? '✅ ' : 'ℹ️ ') . $da . ' von ' . $alle . ' Codes vorhanden'
-                    . ($tab['quelle'] === 'SmartIR' ? ' (Tabelle ' . trim($tab['hersteller'] . ' ' . implode(', ', $tab['modelle'])) . ')' : '')
-                    . ' — ' . count($tab['betriebsarten']) . ' Betriebsarten, ' . count($tab['luefter']) . ' Lüfterstufen, ' . $this->zahl($tab['minTemp']) . '–' . $this->zahl($tab['maxTemp']) . ' °C.'],
+                ['type' => 'Label', 'caption' => ($da > 0 ? '✅ ' : 'ℹ️ ')
+                    . ($tab['quelle'] === 'SmartIR'
+                        ? IRHubText::t('%s of %s codes available (table %s) — %s modes, %s fan levels, %s–%s °C.', $da, $alle, trim($tab['hersteller'] . ' ' . implode(', ', $tab['modelle'])),
+                            count($tab['betriebsarten']), count($tab['luefter']), $this->zahl($tab['minTemp']), $this->zahl($tab['maxTemp']))
+                        : IRHubText::t('%s of %s codes available — %s modes, %s fan levels, %s–%s °C.', $da, $alle,
+                            count($tab['betriebsarten']), count($tab['luefter']), $this->zahl($tab['minTemp']), $this->zahl($tab['maxTemp'])))],
             ]],
-            'smartir' => ['type' => 'ExpansionPanel', 'expanded' => $smartir, 'caption' => '📚  Codetabelle (SmartIR)', 'items' => [
-                ['type' => 'Select', 'name' => 'SmartIRNr', 'caption' => 'Modell', 'options' => $modelle, 'width' => '700px'],
-                ['type' => 'Label', 'caption' => 'ℹ️ Modell nicht dabei? Viele Anlagen sind baugleich mit Midea, Gree oder anderen großen Herstellern — ausprobieren schadet nicht. Sonst selbst lernen.'],
+            'smartir' => ['type' => 'ExpansionPanel', 'expanded' => $smartir, 'caption' => IRHubText::t('📚  Code table (SmartIR)'), 'items' => [
+                ['type' => 'Select', 'name' => 'SmartIRNr', 'caption' => IRHubText::t('Model'), 'options' => $modelle, 'width' => '700px'],
+                ['type' => 'Label', 'caption' => IRHubText::t('ℹ️ Model not listed? Many units are identical in construction to Midea, Gree or other big manufacturers — trying does no harm. Otherwise learn the codes yourself.')],
             ]],
-            'umfang' => ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => '🎓  Selbst lernen: Umfang', 'items' => [
-                ['type' => 'ValidationTextBox', 'name' => 'Betriebsarten', 'caption' => 'Betriebsarten (' . implode(', ', $modusOptionen) . ')', 'width' => '700px'],
-                ['type' => 'ValidationTextBox', 'name' => 'Luefter', 'caption' => 'Lüfterstufen (z. B. auto oder low, mid, high, auto)'],
+            'umfang' => ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => IRHubText::t('🎓  Learning yourself: scope'), 'items' => [
+                ['type' => 'ValidationTextBox', 'name' => 'Betriebsarten', 'caption' => IRHubText::t('Modes (%s)', implode(', ', $modusOptionen)), 'width' => '700px'],
+                ['type' => 'ValidationTextBox', 'name' => 'Luefter', 'caption' => IRHubText::t('Fan levels (e.g. auto or low, mid, high, auto)')],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'NumberSpinner', 'name' => 'MinTemp', 'caption' => 'von', 'suffix' => '°C', 'digits' => 1, 'minimum' => 10, 'maximum' => 35],
-                    ['type' => 'NumberSpinner', 'name' => 'MaxTemp', 'caption' => 'bis', 'suffix' => '°C', 'digits' => 1, 'minimum' => 10, 'maximum' => 35],
-                    ['type' => 'Select', 'name' => 'Schritt', 'caption' => 'Schritt', 'options' => [['caption' => '1 °C', 'value' => 1.0], ['caption' => '0,5 °C', 'value' => 0.5]]],
+                    ['type' => 'NumberSpinner', 'name' => 'MinTemp', 'caption' => IRHubText::t('from'), 'suffix' => '°C', 'digits' => 1, 'minimum' => 10, 'maximum' => 35],
+                    ['type' => 'NumberSpinner', 'name' => 'MaxTemp', 'caption' => IRHubText::t('to'), 'suffix' => '°C', 'digits' => 1, 'minimum' => 10, 'maximum' => 35],
+                    ['type' => 'Select', 'name' => 'Schritt', 'caption' => IRHubText::t('Step'), 'options' => [['caption' => '1 °C', 'value' => 1.0], ['caption' => $this->zahl(0.5) . ' °C', 'value' => 0.5]]],
                 ]],
-                ['type' => 'Label', 'caption' => 'ℹ️ Jede Kombination ist ein Code: ' . (count($this->kombinationen($tab)) - 1) . ' Zustände + Aus. Weniger ist schneller gelernt.'],
+                ['type' => 'Label', 'caption' => IRHubText::t('ℹ️ Each combination is one code: %s states + off. Fewer is learned faster.', count($this->kombinationen($tab)) - 1)],
             ]],
         ];
         $aktionen = [];
         if ($smartir) {
-            $aktionen['laden'] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📚  Codetabelle laden', 'items' => [
-                ['type' => 'Button', 'caption' => '⬇️ Codetabelle von GitHub laden', 'onClick' => 'echo IRKLIMA_TabelleLaden($id);'],
-                ['type' => 'SelectFile', 'name' => 'TabellenDatei', 'caption' => 'oder SmartIR-JSON-Datei hochladen', 'extensions' => '.json'],
-                ['type' => 'Button', 'caption' => '📤 Datei übernehmen', 'onClick' => 'echo IRKLIMA_TabelleHochladen($id, $TabellenDatei);'],
+            $aktionen['laden'] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('📚  Load code table'), 'items' => [
+                ['type' => 'Button', 'caption' => IRHubText::t('⬇️ Load code table from GitHub'), 'onClick' => 'echo IRKLIMA_TabelleLaden($id);'],
+                ['type' => 'SelectFile', 'name' => 'TabellenDatei', 'caption' => IRHubText::t('or upload a SmartIR JSON file'), 'extensions' => '.json'],
+                ['type' => 'Button', 'caption' => IRHubText::t('📤 Apply file'), 'onClick' => 'echo IRKLIMA_TabelleHochladen($id, $TabellenDatei);'],
             ]];
         } else {
-            $aktionen['lernen'] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎓  Codes lernen', 'items' => array_merge(
+            $aktionen['lernen'] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('🎓  Learn codes'), 'items' => array_merge(
                 [
-                    ['type' => 'Label', 'caption' => 'So geht\'s:  1. Die Zeile „Als Nächstes" nennt den Zustand  →  2. genau diesen an der Original-Fernbedienung einstellen  →  3. „Infrarot lernen" klicken  →  4. solange der Balken läuft (30 s), eine Taste drücken, die diesen Zustand sendet  →  5. „Testen"  →  6. „Speichern" — danach geht es automatisch mit dem nächsten Zustand weiter.'],
+                    ['type' => 'Label', 'caption' => IRHubText::t('How it works:  1. The "Next" line names the state  →  2. set exactly this state on the original remote  →  3. click "Learn infrared"  →  4. while the bar is running (30 s), press a button that sends this state  →  5. "Test"  →  6. "Save" — then it automatically continues with the next state.')],
                     ['type' => 'Label', 'name' => 'ZielZeile', 'caption' => $this->zielText()],
                 ],
                 $this->lernElemente(false, 'echo IRKLIMA_GelerntSpeichern($id);'),
                 [
                     ['type' => 'List', 'name' => 'KombiListe', 'rowCount' => 8, 'add' => false, 'delete' => false,
                         'columns' => [
-                            ['caption' => 'Zustand', 'name' => 'zustand', 'width' => '350px', 'add' => ''],
-                            ['caption' => 'Code', 'name' => 'stand', 'width' => 'auto', 'add' => ''],
-                            ['caption' => 'Schlüssel', 'name' => 'schluessel', 'width' => '0px', 'visible' => false, 'add' => ''],
+                            ['caption' => IRHubText::t('State'), 'name' => 'zustand', 'width' => '350px', 'add' => ''],
+                            ['caption' => IRHubText::t('Code'), 'name' => 'stand', 'width' => 'auto', 'add' => ''],
+                            ['caption' => IRHubText::t('Key'), 'name' => 'schluessel', 'width' => '0px', 'visible' => false, 'add' => ''],
                         ],
                         'values' => $this->kombiWerte($tab),
                     ],
                     ['type' => 'RowLayout', 'items' => [
-                        ['type' => 'Button', 'caption' => '🎯 Diese Kombination lernen', 'onClick' => 'echo IRKLIMA_ZielWaehlen($id, $KombiListe["schluessel"]);'],
-                        ['type' => 'Button', 'caption' => '▶️ Testen', 'onClick' => 'echo IRKLIMA_KombinationTesten($id, $KombiListe["schluessel"]);'],
-                        ['type' => 'Button', 'caption' => '🗑 Code löschen', 'onClick' => 'echo IRKLIMA_KombinationLoeschen($id, $KombiListe["schluessel"]);'],
+                        ['type' => 'Button', 'caption' => IRHubText::t('🎯 Learn this combination'), 'onClick' => 'echo IRKLIMA_ZielWaehlen($id, $KombiListe["schluessel"]);'],
+                        ['type' => 'Button', 'caption' => IRHubText::t('▶️ Test'), 'onClick' => 'echo IRKLIMA_KombinationTesten($id, $KombiListe["schluessel"]);'],
+                        ['type' => 'Button', 'caption' => IRHubText::t('🗑 Delete code'), 'onClick' => 'echo IRKLIMA_KombinationLoeschen($id, $KombiListe["schluessel"]);'],
                     ]],
                 ]
             )];
         }
         $analyse = json_decode((string)$this->ReadAttributeString('Analyse'), true);
         $vorschlaege = (array)($analyse['vorschlaege'] ?? []);
-        $aktionen['finden'] = ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => '🔍  Passende Codetabelle finden', 'items' => [
-            ['type' => 'Label', 'caption' => 'Ein einziger Code deiner Anlage genügt: nach dem Lernen prüft IRHub automatisch, welches Protokoll sie spricht und welche Codetabellen dazu passen. Ein vorhandener Code (z. B. aus ioBroker oder Home Assistant) lässt sich auch einfügen.'],
-            ['type' => 'ValidationTextBox', 'name' => 'AnalyseCode', 'caption' => 'Vorhandener Code (Hex, Base64, Pronto)', 'width' => '700px'],
-            ['type' => 'Button', 'caption' => '🔍 Code analysieren', 'onClick' => 'echo IRKLIMA_CodeAnalysieren($id, $AnalyseCode);'],
-            ['type' => 'Label', 'name' => 'AnalyseZeile', 'caption' => (string)($analyse['text'] ?? 'ℹ️ Noch kein Code analysiert.')],
+        $aktionen['finden'] = ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => IRHubText::t('🔍  Find a matching code table'), 'items' => [
+            ['type' => 'Label', 'caption' => IRHubText::t('A single code from your unit is enough: after learning, IRHub automatically checks which protocol it speaks and which code tables match. An existing code (e.g. from ioBroker or Home Assistant) can also be pasted.')],
+            ['type' => 'ValidationTextBox', 'name' => 'AnalyseCode', 'caption' => IRHubText::t('Existing code (hex, Base64, Pronto)'), 'width' => '700px'],
+            ['type' => 'Button', 'caption' => IRHubText::t('🔍 Analyze code'), 'onClick' => 'echo IRKLIMA_CodeAnalysieren($id, $AnalyseCode);'],
+            ['type' => 'Label', 'name' => 'AnalyseZeile', 'caption' => $this->analyseText(is_array($analyse) ? $analyse : [])],
             ['type' => 'RowLayout', 'name' => 'VorschlagZeile', 'visible' => count($vorschlaege) > 0, 'items' => [
-                ['type' => 'Select', 'name' => 'VorschlagNr', 'caption' => 'Vorschlag', 'options' => $this->vorschlagOptionen($vorschlaege), 'value' => $vorschlaege[0]['nr'] ?? 0, 'width' => '500px'],
-                ['type' => 'Button', 'caption' => '⬇️ Diese Tabelle laden', 'onClick' => 'echo IRKLIMA_VorschlagLaden($id, $VorschlagNr);'],
+                ['type' => 'Select', 'name' => 'VorschlagNr', 'caption' => IRHubText::t('Suggestion'), 'options' => $this->vorschlagOptionen($vorschlaege), 'value' => $vorschlaege[0]['nr'] ?? 0, 'width' => '500px'],
+                ['type' => 'Button', 'caption' => IRHubText::t('⬇️ Load this table'), 'onClick' => 'echo IRKLIMA_VorschlagLaden($id, $VorschlagNr);'],
             ]],
         ]];
         $status = [
-            ['code' => 102, 'icon' => 'active', 'caption' => 'Bereit'],
-            ['code' => 201, 'icon' => 'inactive', 'caption' => 'Codetabelle noch nicht geladen'],
+            ['code' => 102, 'icon' => 'active', 'caption' => IRHubText::t('Ready')],
+            ['code' => 201, 'icon' => 'inactive', 'caption' => IRHubText::t('Code table not loaded yet')],
         ];
         return $this->irhubFormular($fach, $aktionen, $status);
     }
 
+    /** Gespeicherte Analyse-Zeile in der aktuellen Sprache (ältere Fassungen haben nur den fertigen deutschen Text). */
+    private function analyseText(array $analyse): string
+    {
+        if (isset($analyse['meldung']) && is_array($analyse['meldung']) && $analyse['meldung'] !== []) {
+            return IRHubText::t(...array_values($analyse['meldung']));
+        }
+        return isset($analyse['text']) ? (string)$analyse['text'] : IRHubText::t('ℹ️ No code analyzed yet.');
+    }
+
+    /** Zahl mit höchstens einer Nachkommastelle; Dezimalkomma nur auf Deutsch. */
     private function zahl(float $wert): string
     {
-        return str_replace('.', ',', (string)round($wert, 1));
+        $text = (string)round($wert, 1);
+        return IRHubText::t('language code: en') === 'de' ? str_replace('.', ',', $text) : $text;
     }
 }

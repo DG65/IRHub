@@ -62,9 +62,14 @@ button:active{transform:scale(.93)}
 var daten = null, plan = null, uhr = null, meldUhr = null;
 var WARTEN_MS = 900;   // −/+ sammeln, dann einmal senden (jeder Klima-Code enthält den kompletten Zustand)
 
+// Texte: englischer Schlüssel, Übersetzung liefert das Modul in daten.texte (locale.json); %s = Wert.
+function T(s, a) { var t = (daten && daten.texte && daten.texte[s]) || s; return a == null ? t : t.replace('%s', a); }
+function deutsch() { return T('language code: en') === 'de'; }
+function komma(s) { return deutsch() ? s.replace('.', ',') : s; }
+
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
-function zahl(v) { var s = (Math.round(v * 10) / 10).toFixed(daten && daten.schritt % 1 ? 1 : 0); return s.replace('.', ','); }
-function zahl1(v) { return (Math.round(v * 10) / 10).toFixed(1).replace('.', ','); }   // Messwerte immer mit einer Nachkommastelle
+function zahl(v) { return komma((Math.round(v * 10) / 10).toFixed(daten && daten.schritt % 1 ? 1 : 0)); }
+function zahl1(v) { return komma((Math.round(v * 10) / 10).toFixed(1)); }   // Messwerte immer mit einer Nachkommastelle
 
 function meldung(text, fehler) {
   var m = document.getElementById('meldung');
@@ -77,11 +82,11 @@ function senden(sofort) {
   clearTimeout(uhr);
   var los = function () {
     uhr = null;
-    meldung('📤 wird gesendet …', false);
+    meldung(T('📤 sending …'), false);
     if (typeof requestAction === 'function') {
       requestAction('KachelZustand', JSON.stringify(plan));
     } else {
-      meldung('⛔ Keine Verbindung zur Visualisierung', true);
+      meldung(T('⛔ No connection to the visualization'), true);
     }
   };
   if (sofort) { los(); } else { uhr = setTimeout(los, WARTEN_MS); }
@@ -104,25 +109,25 @@ function zeichnen() {
   var d = daten, p = plan, app = document.getElementById('app');
   if (!d) { return; }
   if (!d.bereit) {
-    app.innerHTML = '<div class="leerhinweis">Noch keine Codes. In der Instanz eine Codetabelle laden oder Codes lernen.</div>';
+    app.innerHTML = '<div class="leerhinweis">' + esc(T('No codes yet. Load a code table or learn codes in the instance.')) + '</div>';
     return;
   }
-  var raum = d.raum == null ? '' : '<div class="raum">Raum<b>' + zahl1(d.raum) + ' °C</b></div>';
-  var h = '<div class="kopf"><button class="power' + (p.ein ? ' an' : '') + '" data-was="ein"><span class="sym">⏻</span><span class="txt">' + (p.ein ? 'Ein' : 'Aus') + '</span></button>' + raum + '</div>';
+  var raum = d.raum == null ? '' : '<div class="raum">' + esc(T('Room')) + '<b>' + zahl1(d.raum) + ' °C</b></div>';
+  var h = '<div class="kopf"><button class="power' + (p.ein ? ' an' : '') + '" data-was="ein"><span class="sym">⏻</span><span class="txt">' + esc(p.ein ? T('On') : T('Off')) + '</span></button>' + raum + '</div>';
   h += '<div class="soll' + (p.ein ? '' : ' aus') + '">'
-    + '<button data-was="temp" data-wert="-1" aria-label="kälter">−</button>'
-    + '<div class="wert"><b>' + zahl(p.temp) + '°</b><span>' + (p.ein ? 'Solltemperatur' : 'aus · Soll ' + zahl(p.temp) + ' °C') + '</span></div>'
-    + '<button data-was="temp" data-wert="1" aria-label="wärmer">+</button></div>';
-  h += '<div><div class="abschnitt">Betriebsart</div><div class="chips">' + d.modi.map(function (m) {
+    + '<button data-was="temp" data-wert="-1" aria-label="' + esc(T('colder')) + '">−</button>'
+    + '<div class="wert"><b>' + zahl(p.temp) + '°</b><span>' + esc(p.ein ? T('Target temperature') : T('off · target %s °C', zahl(p.temp))) + '</span></div>'
+    + '<button data-was="temp" data-wert="1" aria-label="' + esc(T('warmer')) + '">+</button></div>';
+  h += '<div><div class="abschnitt">' + esc(T('Mode')) + '</div><div class="chips">' + d.modi.map(function (m) {
     return '<button class="chip ' + esc(m.key) + (p.ein && p.modus === m.key ? ' an' : '') + '" data-was="modus" data-wert="' + esc(m.key) + '"><span class="sym">' + m.symbol + '</span>' + esc(m.name) + '</button>';
   }).join('') + '</div></div>';
   if (d.luefterListe.length > 1) {
-    h += '<div><div class="abschnitt">Lüfter</div><div class="chips">' + d.luefterListe.map(function (l) {
+    h += '<div><div class="abschnitt">' + esc(T('Fan')) + '</div><div class="chips">' + d.luefterListe.map(function (l) {
       return '<button class="chip luefter' + (p.luefter === l.key ? ' an' : '') + '" data-was="luefter" data-wert="' + esc(l.key) + '">' + esc(l.name) + '</button>';
     }).join('') + '</div></div>';
   }
-  var stand = d.gesendet ? 'zuletzt gesendet ' + new Date(d.gesendet * 1000).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) : 'noch nichts gesendet';
-  h += '<div class="fuss"><span>' + stand + '</span><button data-was="wiederholen" title="Die Anlage meldet per Infrarot nichts zurück. Sendet den zuletzt gewählten Zustand noch einmal, z. B. nachdem jemand die Original-Fernbedienung benutzt hat.">↻ Erneut senden</button></div>';
+  var stand = d.gesendet ? T('last sent %s', new Date(d.gesendet * 1000).toLocaleTimeString(deutsch() ? 'de-DE' : 'en-GB', {hour: '2-digit', minute: '2-digit'})) : T('nothing sent yet');
+  h += '<div class="fuss"><span>' + esc(stand) + '</span><button data-was="wiederholen" title="' + esc(T('The unit reports nothing back via infrared. Sends the last selected state once more, e.g. after someone used the original remote.')) + '">' + esc(T('↻ Send again')) + '</button></div>';
   app.innerHTML = h;
 }
 
@@ -131,7 +136,7 @@ document.addEventListener('click', function (e) {
   if (!b) { return; }
   var was = b.getAttribute('data-was'), wert = b.getAttribute('data-wert');
   if (was === 'wiederholen') {
-    meldung('📤 wird erneut gesendet …', false);
+    meldung(T('📤 sending again …'), false);
     if (typeof requestAction === 'function') { requestAction('KachelWiederholen', 0); }
     return;
   }
@@ -171,6 +176,7 @@ function handleMessage(raw) {
     clearTimeout(uhr); uhr = null;
     meldung(neu.rueck, neu.rueck.indexOf('⛔') === 0 || neu.rueck.indexOf('⚠') === 0);
   }
+  document.documentElement.lang = deutsch() ? 'de' : 'en';
   farbschemaSetzen(daten.farbschema || 0);
   zeichnen();
 }

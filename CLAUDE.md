@@ -15,6 +15,19 @@
   `IRHubFernbedienung` (IRHUB), `IRHubKlima` (IRKLIMA). DataID Kind→Gerät `{5644728F-…}`,
   Gerät→Kind `{A0CFB438-…}`. Klassen/Präfixe/GUIDs eingefroren, sobald eine Instanz existiert.
 
+## Zweisprachig (0.9.0, Muster RoboHub)
+
+- Quelltexte englisch, Deutsch in `libs/locale.json` → `php .tools/locale-bauen.php` kopiert sie in alle vier
+  Modulordner (Symcon liest locale.json nur dort). Bibliotheken übersetzen über `IRHubText::t()`, jedes Modul setzt
+  im Konstruktor den Übersetzer. Kacheln: `KACHEL_TEXTE` je Modul + `T()` in module.html.
+- Sprachabhängig auch `IRHubText::dezimal()/zeit()` (Komma/Datum) und die Export-Dateinamen.
+- Gespeicherte Anzeigetexte erst beim Anzeigen übersetzen (LetzterFehler mit `ALTE_FEHLERTEXTE`, Klima-Analyse
+  `meldung`); alte deutsche Analyse-Texte bleiben bis zur nächsten Analyse deutsch.
+- Prüfstand läuft auf Deutsch (muss grün sein); `.tools/test-englisch.inc.php` prüft Tabelle, Platzhalter, Kacheln und
+  deutsche Reste in englischen Formularen. `IRHUB_SPRACHE=en` lässt den ganzen Prüfstand englisch laufen (Prüfungen mit
+  deutschen Erwartungen werden dann rot, nichts darf abstürzen), `IRHUB_FORMULARE=1` zeigt alle Formulartexte.
+- Begriff: Funk-Mitschnitt = „RF capture". Aliase in module.json bleiben deutsch (wie RoboHub).
+
 ## Protokoll — belegte Fakten
 
 - Referenz **DAB-LABS/broadlink-async 1.2.0** (MIT, von HA genutzt), nicht mjg59 0.19.0.

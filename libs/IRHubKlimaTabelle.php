@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/IRHubCode.php';
+require_once __DIR__ . '/IRHubText.php';
 
 // ===========================================================================
 // Klima-Codetabelle: welcher IR-Code gehört zu welchem Zustand?
@@ -19,14 +20,15 @@ class IRHubKlimaTabelle
 {
     // Feste Werte der Variable „Betriebsart" (bleiben über Tabellenwechsel stabil).
     // Mehrere Schreibweisen derselben Betriebsart teilen sich einen Wert; eine Tabelle nutzt nur eine davon.
+    // Namen englisch, übersetzt erst beim Anzeigen (betriebsartName()).
     public const BETRIEBSARTEN = [
-        'auto'      => [0, 'Automatik'],
-        'cool'      => [1, 'Kühlen'],
-        'heat'      => [2, 'Heizen'],
-        'dry'       => [3, 'Entfeuchten'],
-        'fan_only'  => [4, 'Lüften'],
-        'fan'       => [4, 'Lüften'],      // Schreibweise einiger SmartIR-Tabellen (Beko, Dimplex, Galanz)
-        'heat_cool' => [5, 'Heizen/Kühlen'],
+        'auto'      => [0, 'Auto'],
+        'cool'      => [1, 'Cool'],
+        'heat'      => [2, 'Heat'],
+        'dry'       => [3, 'Dry'],
+        'fan_only'  => [4, 'Fan only'],
+        'fan'       => [4, 'Fan only'],    // Schreibweise einiger SmartIR-Tabellen (Beko, Dimplex, Galanz)
+        'heat_cool' => [5, 'Heat/Cool'],
     ];
 
     // Symbole der Betriebsarten auf der Kachel.
@@ -34,11 +36,12 @@ class IRHubKlimaTabelle
         'auto' => '🔄', 'cool' => '❄️', 'heat' => '🔥', 'dry' => '💧', 'fan_only' => '🌀', 'fan' => '🌀', 'heat_cool' => '🌡️',
     ];
 
+    // Lüfternamen englisch, übersetzt erst beim Anzeigen (luefterName()).
     public const LUEFTER_NAMEN = [
-        'auto' => 'Automatik', 'low' => 'Niedrig', 'mid' => 'Mittel', 'medium' => 'Mittel', 'middle' => 'Mittel',
-        'high' => 'Hoch', 'highest' => 'Höchste', 'lowest' => 'Niedrigste', 'quiet' => 'Leise', 'silent' => 'Leise',
-        'turbo' => 'Turbo', 'strong' => 'Stark', 'focus' => 'Fokus', 'diffuse' => 'Diffus', 'level1' => 'Stufe 1',
-        'level2' => 'Stufe 2', 'level3' => 'Stufe 3', 'level4' => 'Stufe 4', 'level5' => 'Stufe 5',
+        'auto' => 'Auto', 'low' => 'Low', 'mid' => 'Medium', 'medium' => 'Medium', 'middle' => 'Medium',
+        'high' => 'High', 'highest' => 'Highest', 'lowest' => 'Lowest', 'quiet' => 'Quiet', 'silent' => 'Quiet',
+        'turbo' => 'Turbo', 'strong' => 'Strong', 'focus' => 'Focus', 'diffuse' => 'Diffuse', 'level1' => 'Level 1',
+        'level2' => 'Level 2', 'level3' => 'Level 3', 'level4' => 'Level 4', 'level5' => 'Level 5',
     ];
 
     public const SMARTIR_STAND = 'e4df2957ad915536f41ffb39daa96886d7cfe040';
@@ -66,16 +69,16 @@ class IRHubKlimaTabelle
     {
         $d = json_decode($json, true);
         if (!is_array($d) || !isset($d['commands']) || !is_array($d['commands'])) {
-            return ['fehler' => 'Keine SmartIR-Klimatabelle (Schlüssel „commands" fehlt).'];
+            return ['fehler' => IRHubText::t('Not a SmartIR climate table (key "commands" is missing).')];
         }
         $controller = strtolower((string)($d['supportedController'] ?? 'Broadlink'));
         if ($controller !== 'broadlink') {
-            return ['fehler' => 'Diese Tabelle ist für „' . ($d['supportedController'] ?? '?') . '", nicht für Broadlink.'];
+            return ['fehler' => IRHubText::t('This table is for "%s", not for Broadlink.', $d['supportedController'] ?? '?')];
         }
         $fehler = 0;
         $befehle = self::codesWandeln($d['commands'], $fehler);
         if ($fehler > 0) {
-            return ['fehler' => $fehler . ' Codes der Tabelle sind nicht lesbar (Kodierung „' . ($d['commandsEncoding'] ?? '?') . '").'];
+            return ['fehler' => IRHubText::t('%s codes in the table are not readable (encoding "%s").', $fehler, $d['commandsEncoding'] ?? '?')];
         }
         $modi = array_values(array_filter((array)($d['operationModes'] ?? []), static function ($m) {
             return isset(self::BETRIEBSARTEN[$m]);
@@ -230,9 +233,18 @@ class IRHubKlimaTabelle
         return $treffer;
     }
 
+    /** Anzeigename einer Lüfterstufe (übersetzt); unbekannte Stufen behalten ihren SmartIR-Schlüssel. */
     public static function luefterName(string $l): string
     {
-        return self::LUEFTER_NAMEN[strtolower($l)] ?? $l;
+        $name = self::LUEFTER_NAMEN[strtolower($l)] ?? null;
+        return $name === null ? $l : IRHubText::t($name);
+    }
+
+    /** Anzeigename einer Betriebsart (übersetzt); unbekannte behalten ihren SmartIR-Schlüssel. */
+    public static function betriebsartName(string $m): string
+    {
+        $name = self::BETRIEBSARTEN[$m][1] ?? null;
+        return $name === null ? $m : IRHubText::t($name);
     }
 
     /** Anzahl vorhandener Codes / Kombinationen insgesamt. */

@@ -60,6 +60,7 @@ class IPSModule
     }
     public function Create() {}
     public function ApplyChanges() {}
+    public function Translate($t) { return irhubUebersetze((string)$t); }
     protected function RegisterPropertyString($n, $v) { $this->props[$n] = (string)$v; }
     protected function RegisterPropertyInteger($n, $v) { $this->props[$n] = (int)$v; }
     protected function RegisterPropertyFloat($n, $v) { $this->props[$n] = (float)$v; }
@@ -189,6 +190,15 @@ function neu(string $klasse, int $parent = 0): int
     return $id;
 }
 
+// Sprache des Prüfstands: Deutsch wie Dietmars Symcon (locale.json), umschaltbar für die englischen Prüfungen.
+$GLOBALS['SPRACHE'] = getenv('IRHUB_SPRACHE') ?: 'de';
+$GLOBALS['LOCALE'] = is_file($ROOT . '/libs/locale.json') ? (json_decode((string)file_get_contents($ROOT . '/libs/locale.json'), true)['translations'] ?? []) : [];
+function irhubUebersetze(string $t): string
+{
+    return $GLOBALS['LOCALE'][$GLOBALS['SPRACHE']][$t] ?? $t;
+}
+require_once $ROOT . '/libs/IRHubText.php';
+IRHubText::setzen('irhubUebersetze');
 require_once $ROOT . '/libs/IRHubTasten.php';
 require_once $ROOT . '/IRHubBroadlink/module.php';
 require_once $ROOT . '/IRHubFernbedienung/module.php';
@@ -1118,8 +1128,8 @@ pruef('Nicht genannter Bereich (Befehle) bleibt Standard', !isset($ak['🎛️  
 $t = $titelVon($f['elements']);
 pruef('Kein Verschieben zwischen Einstellungen und Aktionen', count($f['actions']) === 3 && !in_array('✨  Szenen (Folgen als eigene Taste)', $t, true));
 pruef('Caption nennt Zahl ausgeblendeter Bereiche', in_array('🪟  Formular: Aufbau (1 ausgeblendet)', $t, true));
-$aufbau = array_values(array_filter($f['elements'], static function ($e) { return strpos((string)($e['caption'] ?? ''), 'Formular: Aufbau') !== false; }))[0];
-$liste = array_values(array_filter($aufbau['items'], static function ($e) { return ($e['name'] ?? '') === 'FormLayout'; }))[0];
+$aufbau = array_values(array_filter($f['elements'], static function ($e) { return strpos((string)($e['caption'] ?? ''), '🪟') === 0; }))[0] ?? ['items' => []];
+$liste = array_values(array_filter($aufbau['items'], static function ($e) { return ($e['name'] ?? '') === 'FormLayout'; }))[0] ?? ['values' => [], 'columns' => []];
 pruef('Liste zeigt gespeicherte Haken, Key-Spalte unsichtbar mit save', $liste['values'][0]['Hidden'] === true && $liste['values'][2]['Closed'] === true && $liste['columns'][1]['name'] === 'Key' && $liste['columns'][1]['save'] === true && $liste['columns'][1]['visible'] === false && $liste['loadValuesFromConfiguration'] === false);
 pruef('Liste nennt die ausgeblendeten Bereiche', strpos($aufbau['items'][0]['caption'], '🙈 Ausgeblendet: Kachel') === 0);
 $text = $F->ResetFormLayout();
@@ -1186,6 +1196,8 @@ foreach (glob($ROOT . '/*/module.json') as $datei) {
 pruef('Präfixe eindeutig', count($praefixe) === count(array_unique($praefixe)));
 pruef('README nennt Version aus library.json', strpos((string)@file_get_contents($ROOT . '/README.md'), 'Modul-' . $lib['version']) !== false);
 pruef('SmartIR-Verzeichnis vorhanden', count((array)json_decode((string)file_get_contents($ROOT . '/libs/IRHubSmartIR.json'), true)) > 300);
+
+require __DIR__ . '/test-englisch.inc.php';
 
 echo "\n$gut bestanden, $fehl fehlgeschlagen\n";
 exit($fehl > 0 ? 1 : 0);

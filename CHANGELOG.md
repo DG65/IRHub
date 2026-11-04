@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0 (04.11.2026)
+
+- IRHub spricht Englisch: Quelltexte englisch, Deutsch über locale.json (Store-Regel). Formulare, Variablen, Meldungen, Kacheln, Export-Dateinamen, Datum und Dezimalzeichen folgen der Sprache von Symcon; README.en.md.
+- Tastenfeld: englische Befehlsnamen („Volume up", „Power", „Channel down" …) werden wie deutsche eingeordnet.
+- Gespeicherte Fehlertexte und Konfigurator-Funde erscheinen in der aktuellen Sprache, auch alte deutsche Einträge.
+- Deutsch korrigiert: „1 Codetabelle passt zum Aufbau" (vorher „passen … die oberste zuerst").
+
 ## 0.8.0 (30.10.2026)
 
 - Funk-Mitschnitt erkennt Sender: Festcode-Signale werden in Bits zerlegt und über ihre Adresse einem Sender zugeordnet (Sender und Taste in der Liste, Übersicht darüber; Schätzung).

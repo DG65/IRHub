@@ -28,6 +28,15 @@ class IRHubBroadlink extends IPSModule
 {
     use IRHubFormular;
 
+    public function __construct(int $InstanceID)
+    {
+        parent::__construct($InstanceID);
+        // Bibliotheken und Kachel übersetzen über IRHubText (englische Quelltexte, Deutsch in locale.json).
+        IRHubText::setzen(function (string $text): string {
+            return $this->Translate($text);
+        });
+    }
+
     private const DATA_ZUM_KIND = '{A0CFB438-C1FD-4E81-BD71-FDABED342F6D}';
     private const MODUL_FERNBEDIENUNG = '{3AD1F284-451A-416E-84E5-D23BDAE936CF}';
     private const MODUL_KLIMA = '{2D742F1B-3384-4102-8B20-AB94D999EDC9}';
@@ -35,6 +44,12 @@ class IRHubBroadlink extends IPSModule
     private const PROTOKOLL_MAX = 200;
     private const MITSCHNITT_NEU_SCHARF = 15;   // s — das Gerät verlässt den Lernmodus nach 25–40 s still
     private const WIEDERHOLUNG_S = 3;           // gleiches Signal innerhalb von 3 s = gehaltene Taste
+
+    // Ältere Versionen schrieben deutschen Text ins Attribut LetzterFehler → englischer Quelltext.
+    private const ALTE_FEHLERTEXTE = [
+        'PHP-Erweiterung „sockets" fehlt in dieser Symcon-Installation.' => 'PHP extension "sockets" is missing in this Symcon installation.',
+        'Gerät ist gerade beschäftigt.' => 'Device is busy right now.',
+    ];
 
     private const STATUS_GESPERRT = 201;
     private const STATUS_UNERREICHBAR = 202;
@@ -77,8 +92,8 @@ class IRHubBroadlink extends IPSModule
         }
 
         $mitschnitt = $this->ReadPropertyBoolean('Mitschnitt');
-        $this->MaintainVariable('Funksignal', 'Letztes Funksignal', VARIABLETYPE_STRING, ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION], 10, $mitschnitt);
-        $this->MaintainVariable('FunkErkannt', 'Erkanntes Funksignal', VARIABLETYPE_STRING, ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION], 11, $mitschnitt);
+        $this->MaintainVariable('Funksignal', IRHubText::t('Last RF signal'), VARIABLETYPE_STRING, ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION], 10, $mitschnitt);
+        $this->MaintainVariable('FunkErkannt', IRHubText::t('Detected RF signal'), VARIABLETYPE_STRING, ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION], 11, $mitschnitt);
         $this->WriteAttributeInteger('MitschnittScharf', 0);
         $this->SetTimerInterval('Mitschnitt', $mitschnitt && $this->host() !== '' ? 1000 : 0);
 
@@ -156,11 +171,11 @@ class IRHubBroadlink extends IPSModule
         // RM4 ohne HTS2-Kabelsensor liefert 0/0; −7 °C ist ein bekannter Firmware-Fehlwert (HA #42100).
         $tGueltig = $t !== null && !($t == 0 && ($f ?? 0) == 0) && abs($t + 7) > 0.001 && $t > -30 && $t < 70;
         if ($tGueltig) {
-            $this->MaintainVariable('Temperatur', 'Temperatur', VARIABLETYPE_FLOAT, ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'SUFFIX' => ' °C', 'DIGITS' => 1], 1, true);
+            $this->MaintainVariable('Temperatur', IRHubText::t('Temperature'), VARIABLETYPE_FLOAT, ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'SUFFIX' => ' °C', 'DIGITS' => 1], 1, true);
             $this->SetValue('Temperatur', round((float)$t, 2));
         }
         if ($tGueltig && $f !== null && $f > 0 && $f <= 100) {
-            $this->MaintainVariable('Feuchte', 'Luftfeuchte', VARIABLETYPE_FLOAT, ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'SUFFIX' => ' %', 'DIGITS' => 0], 2, true);
+            $this->MaintainVariable('Feuchte', IRHubText::t('Humidity'), VARIABLETYPE_FLOAT, ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'SUFFIX' => ' %', 'DIGITS' => 0], 2, true);
             $this->SetValue('Feuchte', round((float)$f, 1));
         }
     }
@@ -171,7 +186,7 @@ class IRHubBroadlink extends IPSModule
     {
         $daten = json_decode((string)$JSONString, true);
         if (!is_array($daten)) {
-            return (string)json_encode(['ok' => false, 'meldung' => 'Ungültige Anfrage']);
+            return (string)json_encode(['ok' => false, 'meldung' => IRHubText::t('Invalid request')]);
         }
         $antwort = $this->ausfuehren((string)($daten['Aktion'] ?? ''), $daten);
         return (string)json_encode($antwort);
@@ -180,7 +195,7 @@ class IRHubBroadlink extends IPSModule
     private function ausfuehren(string $aktion, array $d): array
     {
         if ($this->host() === '') {
-            return ['ok' => false, 'meldung' => '⛔ Am Broadlink-Gerät ist noch keine IP-Adresse eingetragen.'];
+            return ['ok' => false, 'meldung' => IRHubText::t('⛔ No IP address has been entered on the Broadlink device yet.')];
         }
         $typ = $this->typ();
         if ($typ === 0 && !$this->kennenlernen()) {
@@ -204,10 +219,10 @@ class IRHubBroadlink extends IPSModule
             case 'senden':
                 $paket = IRHubCode::ausBase64((string)($d['Code'] ?? ''));
                 if ($paket === '') {
-                    return ['ok' => false, 'meldung' => '⛔ Kein gültiger Code.'];
+                    return ['ok' => false, 'meldung' => IRHubText::t('⛔ Not a valid code.')];
                 }
                 if (IRHubCode::istFunk($paket) && !$funk) {
-                    return ['ok' => false, 'meldung' => '⛔ Funkcode, aber ' . IRHubBroadlinkProtokoll::modell($typ) . ' kann nur Infrarot senden.'];
+                    return ['ok' => false, 'meldung' => IRHubText::t('⛔ RF code, but %s can only send infrared.', IRHubBroadlinkProtokoll::modell($typ))];
                 }
                 $r = $this->rm(IRHubBroadlinkProtokoll::CMD_SENDEN, $paket);
                 return $r === null ? $this->fehlerAntwort() : ['ok' => true];
@@ -216,7 +231,7 @@ class IRHubBroadlink extends IPSModule
                 return $r === null ? $this->fehlerAntwort() : ['ok' => true];
             case 'sweep':
                 if (!$funk) {
-                    return ['ok' => false, 'meldung' => '⛔ ' . IRHubBroadlinkProtokoll::modell($typ) . ' hat keinen Funkempfänger.'];
+                    return ['ok' => false, 'meldung' => IRHubText::t('⛔ %s has no RF receiver.', IRHubBroadlinkProtokoll::modell($typ))];
                 }
                 $r = $this->rm(IRHubBroadlinkProtokoll::CMD_SWEEP);
                 return $r === null ? $this->fehlerAntwort() : ['ok' => true];
@@ -248,7 +263,7 @@ class IRHubBroadlink extends IPSModule
                 $r = $this->rm(IRHubBroadlinkProtokoll::CMD_ABBRECHEN);
                 return $r === null ? $this->fehlerAntwort() : ['ok' => true];
         }
-        return ['ok' => false, 'meldung' => 'Unbekannte Aktion ' . $aktion];
+        return ['ok' => false, 'meldung' => IRHubText::t('Unknown action %s', $aktion)];
     }
 
     private function rm(int $befehl, string $daten = ''): ?string
@@ -262,13 +277,14 @@ class IRHubBroadlink extends IPSModule
     private function mitSitzung(callable $f): ?string
     {
         if (!IRHubUdp::verfuegbar()) {
-            $this->WriteAttributeString('LetzterFehler', 'PHP-Erweiterung „sockets" fehlt in dieser Symcon-Installation.');
+            // Englischer Quelltext im Attribut, übersetzt wird beim Anzeigen (fehlerText).
+            $this->WriteAttributeString('LetzterFehler', 'PHP extension "sockets" is missing in this Symcon installation.');
             $this->SetStatus(self::STATUS_UNERREICHBAR);
             return null;
         }
         $sem = 'IRHubBroadlink' . $this->InstanceID;
         if (!IPS_SemaphoreEnter($sem, 15000)) {
-            $this->WriteAttributeString('LetzterFehler', 'Gerät ist gerade beschäftigt.');
+            $this->WriteAttributeString('LetzterFehler', 'Device is busy right now.');
             return null;
         }
         try {
@@ -312,7 +328,12 @@ class IRHubBroadlink extends IPSModule
     private function fehlerText(): string
     {
         $f = $this->ReadAttributeString('LetzterFehler');
-        return is_numeric($f) ? IRHubBroadlinkProtokoll::fehlerText((int)$f) : ($f !== '' ? $f : 'unbekannter Fehler');
+        if (is_numeric($f)) {
+            return IRHubBroadlinkProtokoll::fehlerText((int)$f);
+        }
+        // Vor der Umstellung auf englische Quelltexte stand der deutsche Text im Attribut.
+        $f = self::ALTE_FEHLERTEXTE[$f] ?? $f;
+        return IRHubText::t($f !== '' ? $f : 'unknown error');
     }
 
     private function fehlerAntwort(): array
@@ -381,10 +402,10 @@ class IRHubBroadlink extends IPSModule
             $protokoll = array_slice($protokoll, 0, self::PROTOKOLL_MAX);
         }
         $this->WriteAttributeString('Protokoll', (string)json_encode($protokoll));
-        $text = date('d.m.Y H:i:s', $zeit) . ' · ' . ($erkannt !== '' ? $erkannt : 'unbekannt') . ' · ' . IRHubCode::beschreibung($paket);
+        $text = IRHubText::zeit($zeit) . ' · ' . ($erkannt !== '' ? $erkannt : IRHubText::t('unknown')) . ' · ' . IRHubCode::beschreibung($paket);
         $this->SetValue('Funksignal', $text);
         $this->SetValue('FunkErkannt', $erkannt);
-        $this->SendDebug('Mitschnitt', $text . ' · ' . $code, 0);
+        $this->SendDebug('Recording', $text . ' · ' . $code, 0);
         $this->UpdateFormField('ProtokollListe', 'values', (string)json_encode($this->protokollWerte()));
         $this->UpdateFormField('MitschnittZeile', 'caption', $this->mitschnittZeile());
         $this->UpdateFormField('SenderZeile', 'caption', $this->senderZeile());
@@ -436,9 +457,13 @@ class IRHubBroadlink extends IPSModule
     private function senderText(array $e): string
     {
         if ((int)($e['sender'] ?? 0) === 0) {
-            return 'nicht lesbar';
+            return IRHubText::t('not readable');
         }
-        return 'Sender ' . (int)$e['sender'] . ((string)($e['taste'] ?? '') !== '' ? ' · Taste ' . $e['taste'] : '') . (!empty($e['wechselcode']) ? ' · Wechselcode?' : '');
+        $text = IRHubText::t('Transmitter %d', (int)$e['sender']);
+        if ((string)($e['taste'] ?? '') !== '') {
+            $text .= ' · ' . IRHubText::t('button %s', (string)$e['taste']);
+        }
+        return $text . (!empty($e['wechselcode']) ? ' · ' . IRHubText::t('rolling code?') : '');
     }
 
     /** Übersicht fürs Formular: welche Sender, wie viele Tasten und Signale. */
@@ -456,16 +481,24 @@ class IRHubBroadlink extends IPSModule
             $je[$nr]['signale'] = ($je[$nr]['signale'] ?? 0) + (int)$e['wdh'];
         }
         if (count($je) === 0 && $unlesbar === 0) {
-            return 'ℹ️ Noch keine Sender erkannt.';
+            return IRHubText::t('ℹ️ No transmitters detected yet.');
         }
         ksort($je);
         $teile = [];
         foreach ($je as $nr => $d) {
-            $teile[] = 'Sender ' . $nr . ': ' . count($d['tasten']) . ' Taste' . (count($d['tasten']) === 1 ? '' : 'n') . ', ' . $d['signale'] . ' Signal' . ($d['signale'] === 1 ? '' : 'e');
+            $tasten = count($d['tasten']) === 1 ? IRHubText::t('1 button') : IRHubText::t('%d buttons', count($d['tasten']));
+            $teile[] = IRHubText::t('Transmitter %d: %s, %s', $nr, $tasten, self::signale((int)$d['signale']));
         }
-        return '📡 ' . count($je) . ' Sender erkannt' . (count($teile) > 0 ? ' — ' . implode('; ', $teile) : '')
-            . ($unlesbar > 0 ? '. ' . $unlesbar . ' Signal' . ($unlesbar === 1 ? '' : 'e') . ' nicht lesbar (andere Kodierung).' : '.')
-            . ' Die Zuordnung ist eine Schätzung aus der Adresse im Signal.';
+        $kopf = count($je) === 1 ? IRHubText::t('📡 1 transmitter detected') : IRHubText::t('📡 %d transmitters detected', count($je));
+        return $kopf . (count($teile) > 0 ? ' — ' . implode('; ', $teile) : '')
+            . ($unlesbar > 0 ? '. ' . IRHubText::t('%s not readable (different encoding).', self::signale($unlesbar)) : '.')
+            . ' ' . IRHubText::t('The assignment is an estimate based on the address in the signal.');
+    }
+
+    /** „1 Signal" / „n Signale" in der Sprache der Konsole. */
+    private static function signale(int $n): string
+    {
+        return $n === 1 ? IRHubText::t('1 signal') : IRHubText::t('%d signals', $n);
     }
 
     /** Protokoll als Datei: $Format 'csv' oder 'json'. Rückgabe: Data-URL für den Download-Knopf. */
@@ -488,12 +521,12 @@ class IRHubBroadlink extends IPSModule
             }, $eintraege);
             return IRHubCode::datenUrl((string)json_encode($aus, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'application/json');
         }
-        $zeilen = [['Zeitpunkt', 'Bis', 'MHz', 'Wiederholungen', 'Sender', 'Taste', 'Wechselcode vermutet', 'Erkannt', 'Signal', 'Bits', 'Pulsfolge (µs)', 'Code (Base64)']];
+        $zeilen = [array_map([IRHubText::class, 't'], ['Time', 'Until', 'MHz', 'Repetitions', 'Transmitter', 'Button', 'Rolling code suspected', 'Detected', 'Signal', 'Bits', 'Pulse sequence (µs)', 'Code (Base64)'])];
         foreach ($eintraege as $x) {
             $e = $x['e'];
             $zeilen[] = [
-                date('d.m.Y H:i:s', (int)$e['zeit']), date('d.m.Y H:i:s', (int)$e['bis']), number_format((float)$e['mhz'], 2, ',', ''), (int)$e['wdh'],
-                (int)($e['sender'] ?? 0) === 0 ? '' : (int)$e['sender'], (string)($e['taste'] ?? ''), !empty($e['wechselcode']) ? 'ja' : '', (string)$e['erkannt'],
+                IRHubText::zeit((int)$e['zeit']), IRHubText::zeit((int)$e['bis']), number_format((float)$e['mhz'], 2, IRHubText::dezimal(), ''), (int)$e['wdh'],
+                (int)($e['sender'] ?? 0) === 0 ? '' : (int)$e['sender'], (string)($e['taste'] ?? ''), !empty($e['wechselcode']) ? IRHubText::t('yes') : '', (string)$e['erkannt'],
                 IRHubCode::beschreibung($x['paket']), $x['bits'], implode(' ', IRHubCode::paketZuPulse($x['paket'])), (string)$e['code'],
             ];
         }
@@ -543,8 +576,8 @@ class IRHubBroadlink extends IPSModule
         foreach ($this->protokoll() as $e) {
             $paket = IRHubCode::ausBase64((string)$e['code']);
             $werte[] = [
-                'zeit'    => date('d.m.Y H:i:s', (int)$e['zeit']),
-                'mhz'     => number_format((float)$e['mhz'], 2, ',', ''),
+                'zeit'    => IRHubText::zeit((int)$e['zeit']),
+                'mhz'     => number_format((float)$e['mhz'], 2, IRHubText::dezimal(), ''),
                 'signal'  => IRHubCode::beschreibung($paket),
                 'folge'   => IRHubCode::folgeText($paket, 12),
                 'wdh'     => (int)$e['wdh'] > 1 ? (int)$e['wdh'] . '×' : '',
@@ -560,25 +593,25 @@ class IRHubBroadlink extends IPSModule
     {
         $typ = $this->typ();
         if ($typ !== 0 && !IRHubBroadlinkProtokoll::kannFunk($typ)) {
-            return 'ℹ️ ' . IRHubBroadlinkProtokoll::modell($typ) . ' hat keinen Funkempfänger — der Mitschnitt geht nur mit RM pro/pro+ und RM4 pro.';
+            return IRHubText::t('ℹ️ %s has no RF receiver — recording only works with RM pro/pro+ and RM4 pro.', IRHubBroadlinkProtokoll::modell($typ));
         }
         if (!$this->ReadPropertyBoolean('Mitschnitt')) {
-            return 'ℹ️ Mitschnitt ist aus. Oben unter „Gerät" einschalten und „Übernehmen" klicken.';
+            return IRHubText::t('ℹ️ Recording is off. Turn it on above under "Device" and click "Apply".');
         }
         $n = count($this->protokoll());
         $pause = $this->ReadAttributeInteger('MitschnittPauseBis') > time();
-        return ($pause ? '⏸ Pausiert, solange eine Fernbedienung lernt' : '📻 Mitschnitt läuft auf ' . number_format((float)$this->ReadPropertyFloat('MitschnittMHz'), 2, ',', '') . ' MHz')
-            . ' — ' . $n . ' Signal' . ($n === 1 ? '' : 'e') . ' im Protokoll.';
+        return ($pause ? IRHubText::t('⏸ Paused while a remote control is learning') : IRHubText::t('📻 Recording on %s MHz', number_format((float)$this->ReadPropertyFloat('MitschnittMHz'), 2, IRHubText::dezimal(), '')))
+            . ' — ' . IRHubText::t('%s in the log.', self::signale($n));
     }
 
     /** Protokollierten Code unter einem Namen in eine Fernbedienung übernehmen. */
     public function MitschnittUebernehmen(int $Fernbedienung, string $Name, string $Code): string
     {
         if ($Code === '') {
-            return 'ℹ️ Bitte zuerst eine Zeile im Protokoll auswählen.';
+            return IRHubText::t('ℹ️ Please select a row in the log first.');
         }
         if (!isset($this->fernbedienungen()[$Fernbedienung])) {
-            return 'ℹ️ Bitte eine Fernbedienung dieses Broadlink-Geräts wählen (oder oben „Fernbedienung anlegen").';
+            return IRHubText::t('ℹ️ Please choose a remote control of this Broadlink device (or "Create remote control" above).');
         }
         try {
             $text = (string)IRHUB_Importieren($Fernbedienung, $Name, $Code);
@@ -604,10 +637,10 @@ class IRHubBroadlink extends IPSModule
     public function MitschnittSenden(string $Code): string
     {
         if ($Code === '') {
-            return 'ℹ️ Bitte zuerst eine Zeile im Protokoll auswählen.';
+            return IRHubText::t('ℹ️ Please select a row in the log first.');
         }
         $r = $this->ausfuehren('senden', ['Code' => $Code]);
-        return !empty($r['ok']) ? '✅ Gesendet.' : (string)$r['meldung'];
+        return !empty($r['ok']) ? IRHubText::t('✅ Sent.') : (string)$r['meldung'];
     }
 
     public function ProtokollLeeren(): string
@@ -617,7 +650,7 @@ class IRHubBroadlink extends IPSModule
         $this->UpdateFormField('ProtokollListe', 'values', '[]');
         $this->UpdateFormField('MitschnittZeile', 'caption', $this->mitschnittZeile());
         $this->UpdateFormField('SenderZeile', 'caption', $this->senderZeile());
-        return '✅ Protokoll geleert.';
+        return IRHubText::t('✅ Log cleared.');
     }
 
     // ------------------------------------------------------------------ Knöpfe
@@ -626,11 +659,11 @@ class IRHubBroadlink extends IPSModule
     public function VerbindungPruefen(): string
     {
         if ($this->host() === '') {
-            return '⛔ Bitte zuerst die IP-Adresse eintragen und übernehmen.';
+            return IRHubText::t('⛔ Please enter the IP address and apply first.');
         }
         if (!$this->kennenlernen()) {
             $this->statusZeileAuffrischen();
-            return '⛔ Keine Antwort von ' . $this->host() . '. IP-Adresse prüfen; das Gerät muss im selben Netz erreichbar sein (UDP Port 80).';
+            return IRHubText::t('⛔ No response from %s. Check the IP address; the device must be reachable in the same network (UDP port 80).', $this->host());
         }
         $geraet = $this->geraet();
         $firmware = $this->mitSitzung(function (IRHubBroadlinkSitzung $s) {
@@ -641,21 +674,21 @@ class IRHubBroadlink extends IPSModule
             return $n === null ? '' : (string)IRHubBroadlinkProtokoll::firmwareAuswerten($n);
         });
         $this->statusZeileAuffrischen();
-        $kopf = IRHubBroadlinkProtokoll::modell((int)$geraet['typ']) . sprintf(' (Kennung 0x%04X), MAC %s', (int)$geraet['typ'], (string)$geraet['mac']);
+        $kopf = IRHubText::t('%s (identifier 0x%04X), MAC %s', IRHubBroadlinkProtokoll::modell((int)$geraet['typ']), (int)$geraet['typ'], (string)$geraet['mac']);
         if ($firmware === null) {
-            return '⛔ ' . $kopf . ' antwortet, Anmeldung gescheitert: ' . $this->fehlerText()
-                . ($this->letzterCode() === -1 ? '. In der Broadlink-App: Gerät öffnen → „…" oben rechts → ganz unten „Gerät sperren" ausschalten, dann erneut prüfen.' : '');
+            return IRHubText::t('⛔ %s responds, login failed: %s', $kopf, $this->fehlerText())
+                . ($this->letzterCode() === -1 ? '. ' . IRHubText::t('In the Broadlink app: open the device → "…" top right → at the very bottom turn off "Lock device", then check again.') : '');
         }
         if ($firmware !== '') {
             $geraet['firmware'] = (int)$firmware;
             $this->WriteAttributeString('Geraet', (string)json_encode($geraet));
         }
-        $text = '✅ ' . $kopf . ' — angemeldet' . ($firmware !== '' ? ', Firmware ' . $firmware : '') . '.';
+        $text = $firmware !== '' ? IRHubText::t('✅ %s — logged in, firmware %s.', $kopf, $firmware) : IRHubText::t('✅ %s — logged in.', $kopf);
         if (!empty($geraet['gesperrt'])) {
-            $text .= ' ⚠️ Das Gerät meldet sich als gesperrt. Läuft alles, kannst du es mit „Lokal entsperren" dauerhaft freigeben.';
+            $text .= ' ' . IRHubText::t('⚠️ The device reports itself as locked. If everything works, you can unlock it permanently with "Unlock locally".');
         }
         if (IRHubBroadlinkProtokoll::familie((int)$geraet['typ']) === null) {
-            $text .= ' ⚠️ Diese Gerätekennung kennt IRHub noch nicht — bitte melden, dann wird sie ergänzt.';
+            $text .= ' ' . IRHubText::t('⚠️ IRHub does not know this device identifier yet — please report it and it will be added.');
         }
         return $text;
     }
@@ -668,12 +701,12 @@ class IRHubBroadlink extends IPSModule
             return $s->befehl(IRHubBroadlinkProtokoll::lockNutzlast((string)($geraet['name'] ?? ''), false));
         });
         if ($ok === null) {
-            return '⛔ Entsperren fehlgeschlagen: ' . $this->fehlerText();
+            return IRHubText::t('⛔ Unlocking failed: %s', $this->fehlerText());
         }
         $geraet['gesperrt'] = false;
         $this->WriteAttributeString('Geraet', (string)json_encode($geraet));
         $this->statusZeileAuffrischen();
-        return '✅ Gerät lokal entsperrt.';
+        return IRHubText::t('✅ Device unlocked locally.');
     }
 
     /** Kind-Instanz anlegen und verbinden. $Art: 'fernbedienung' oder 'klima'. */
@@ -683,12 +716,12 @@ class IRHubBroadlink extends IPSModule
         $id = IPS_CreateInstance($modul);
         if (!IPS_ConnectInstance($id, $this->InstanceID)) {
             IPS_DeleteInstance($id);
-            return '⛔ Instanz konnte nicht verbunden werden.';
+            return IRHubText::t('⛔ The instance could not be connected.');
         }
-        IPS_SetName($id, ($Art === 'klima' ? 'Klimaanlage' : 'Fernbedienung') . ' (' . IPS_GetName($this->InstanceID) . ')');
+        IPS_SetName($id, $Art === 'klima' ? IRHubText::t('Air conditioner (%s)', IPS_GetName($this->InstanceID)) : IRHubText::t('Remote control (%s)', IPS_GetName($this->InstanceID)));
         IPS_SetParent($id, IPS_GetParent($this->InstanceID));
         IPS_ApplyChanges($id);
-        return '✅ ' . IPS_GetName($id) . ' (#' . $id . ') angelegt — dort Codes lernen.';
+        return IRHubText::t('✅ %s (#%d) created — learn codes there.', IPS_GetName($id), $id);
     }
 
     // ------------------------------------------------------------------ Formular
@@ -701,18 +734,18 @@ class IRHubBroadlink extends IPSModule
     protected function irhubZweck(): array
     {
         return [
-            'Diese Instanz steht für ein Broadlink-Gerät (RM mini, RM pro, RM4 …) in deinem Netz. Sie meldet sich lokal am Gerät an — ohne Cloud — und sendet die Infrarot- und Funkbefehle deiner Fernbedienungs- und Klima-Instanzen.',
-            'Hat das Gerät einen Temperatursensor (RM pro, RM4 mit Kabelsensor), erscheinen Temperatur und Luftfeuchte hier als Variablen.',
+            IRHubText::t('This instance represents a Broadlink device (RM mini, RM pro, RM4 …) in your network. It logs in to the device locally — without a cloud — and sends the infrared and RF commands of your remote control and air conditioner instances.'),
+            IRHubText::t('If the device has a temperature sensor (RM pro, RM4 with cable sensor), temperature and humidity appear here as variables.'),
         ];
     }
 
     protected function irhubDoku(): array
     {
         return [
-            'Einrichtung: Gerät mit der Broadlink-App ins WLAN bringen, danach in der App nichts weiter einrichten. Ist das Gerät in der App gesperrt („Gerät sperren"), lehnt es die lokale Anmeldung ab — dann dort entsperren.',
-            'IP-Adresse am besten im Router fest vergeben. Die Kommunikation läuft über UDP Port 80 direkt zum Gerät, auch über Subnetz- und Docker-Grenzen, sofern das Gerät erreichbar ist.',
-            'Fernbedienungen und Klimaanlagen hängen als eigene Instanzen unter diesem Gerät — beliebig viele je Broadlink.',
-            'Funk-Mitschnitt (RM pro/pro+, RM4 pro): protokolliert empfangene Funksignale mit Zeitpunkt; die Variable „Erkanntes Funksignal" eignet sich als Auslöser für Ereignisse (z. B. Funkklingel → Push-Nachricht).',
+            IRHubText::t('Setup: connect the device to Wi-Fi with the Broadlink app, then set up nothing else in the app. If the device is locked in the app ("Lock device"), it refuses the local login — unlock it there.'),
+            IRHubText::t('Preferably assign a fixed IP address in the router. Communication runs via UDP port 80 directly to the device, also across subnet and Docker boundaries, as long as the device is reachable.'),
+            IRHubText::t('Remote controls and air conditioners are separate instances below this device — as many as you like per Broadlink.'),
+            IRHubText::t('RF capture (RM pro/pro+, RM4 pro): logs received RF signals with their time; the variable "Detected RF signal" is suitable as a trigger for events (e.g. wireless doorbell → push notification).'),
         ];
     }
 
@@ -727,68 +760,68 @@ class IRHubBroadlink extends IPSModule
             }
         }
         $fach = [
-            'geraet' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📡  Gerät', 'items' => [
-                ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse des Broadlink-Geräts'],
+            'geraet' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('📡  Device'), 'items' => [
+                ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => IRHubText::t('IP address of the Broadlink device')],
                 ['type' => 'Label', 'name' => 'StatusZeile', 'caption' => $this->statusZeile()],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => '🔌 Verbindung prüfen', 'onClick' => 'echo IRBL_VerbindungPruefen($id);'],
-                    ['type' => 'Button', 'name' => 'EntsperrenKnopf', 'caption' => '🔓 Lokal entsperren', 'visible' => $gesperrt, 'onClick' => 'echo IRBL_LokalEntsperren($id);'],
+                    ['type' => 'Button', 'caption' => IRHubText::t('🔌 Check connection'), 'onClick' => 'echo IRBL_VerbindungPruefen($id);'],
+                    ['type' => 'Button', 'name' => 'EntsperrenKnopf', 'caption' => IRHubText::t('🔓 Unlock locally'), 'visible' => $gesperrt, 'onClick' => 'echo IRBL_LokalEntsperren($id);'],
                 ]],
-                ['type' => 'NumberSpinner', 'name' => 'Intervall', 'caption' => 'Abfrage alle', 'suffix' => 's', 'minimum' => 30, 'maximum' => 3600],
+                ['type' => 'NumberSpinner', 'name' => 'Intervall', 'caption' => IRHubText::t('Query every'), 'suffix' => 's', 'minimum' => 30, 'maximum' => 3600],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'CheckBox', 'name' => 'Mitschnitt', 'caption' => '📻 Funk-Mitschnitt (empfangene Funksignale protokollieren)'],
-                    ['type' => 'NumberSpinner', 'name' => 'MitschnittMHz', 'caption' => 'auf', 'suffix' => 'MHz', 'digits' => 2, 'minimum' => 300, 'maximum' => 450],
+                    ['type' => 'CheckBox', 'name' => 'Mitschnitt', 'caption' => IRHubText::t('📻 RF capture (log received RF signals)')],
+                    ['type' => 'NumberSpinner', 'name' => 'MitschnittMHz', 'caption' => IRHubText::t('on frequency'), 'suffix' => 'MHz', 'digits' => 2, 'minimum' => 300, 'maximum' => 450],
                 ]],
             ]],
-            'kinder' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎛️  Fernbedienungen und Klimaanlagen', 'items' => [
-                ['type' => 'Label', 'caption' => count($kinder) === 0 ? 'ℹ️ Noch keine Instanz an diesem Gerät.' : '🔗 Verbunden: ' . implode(', ', $kinder)],
+            'kinder' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('🎛️  Remote controls and air conditioners'), 'items' => [
+                ['type' => 'Label', 'caption' => count($kinder) === 0 ? IRHubText::t('ℹ️ No instance on this device yet.') : IRHubText::t('🔗 Connected: %s', implode(', ', $kinder))],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => '➕ Fernbedienung anlegen', 'onClick' => 'echo IRBL_KindAnlegen($id, "fernbedienung");'],
-                    ['type' => 'Button', 'caption' => '➕ Klimaanlage anlegen', 'onClick' => 'echo IRBL_KindAnlegen($id, "klima");'],
+                    ['type' => 'Button', 'caption' => IRHubText::t('➕ Create remote control'), 'onClick' => 'echo IRBL_KindAnlegen($id, "fernbedienung");'],
+                    ['type' => 'Button', 'caption' => IRHubText::t('➕ Create air conditioner'), 'onClick' => 'echo IRBL_KindAnlegen($id, "klima");'],
                 ]],
             ]],
         ];
         $status = [
-            ['code' => 102, 'icon' => 'active', 'caption' => 'Verbunden'],
-            ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte IP-Adresse eintragen'],
-            ['code' => self::STATUS_GESPERRT, 'icon' => 'error', 'caption' => 'Gerät ist in der Broadlink-App gesperrt — dort „Gerät sperren" ausschalten'],
-            ['code' => self::STATUS_UNERREICHBAR, 'icon' => 'error', 'caption' => 'Gerät antwortet nicht'],
-            ['code' => self::STATUS_UNBEKANNT, 'icon' => 'inactive', 'caption' => 'Unbekannte Gerätekennung — bitte melden'],
+            ['code' => 102, 'icon' => 'active', 'caption' => IRHubText::t('Connected')],
+            ['code' => 104, 'icon' => 'inactive', 'caption' => IRHubText::t('Please enter the IP address')],
+            ['code' => self::STATUS_GESPERRT, 'icon' => 'error', 'caption' => IRHubText::t('Device is locked in the Broadlink app — turn off "Lock device" there')],
+            ['code' => self::STATUS_UNERREICHBAR, 'icon' => 'error', 'caption' => IRHubText::t('Device does not respond')],
+            ['code' => self::STATUS_UNBEKANNT, 'icon' => 'inactive', 'caption' => IRHubText::t('Unknown device identifier — please report it')],
         ];
         $this->senderNachziehen();
-        $ziele = [['caption' => '— Fernbedienung wählen —', 'value' => 0]];
+        $ziele = [['caption' => IRHubText::t('— Choose remote control —'), 'value' => 0]];
         foreach ($this->fernbedienungen() as $fid => $fname) {
             $ziele[] = ['caption' => $fname . ' (#' . $fid . ')', 'value' => $fid];
         }
         $aktionen = [
-            'mitschnitt' => ['type' => 'ExpansionPanel', 'expanded' => $this->ReadPropertyBoolean('Mitschnitt'), 'caption' => '📻  Funk-Mitschnitt', 'items' => [
-                ['type' => 'Label', 'caption' => 'Der Mitschnitt hält den Broadlink ständig empfangsbereit und schreibt jedes Funksignal mit Datum und Uhrzeit ins Protokoll — z. B. Handsender, Funkklingel oder Fernbedienungen, deren Taste man nicht extra lernen will. Ein Eintrag lässt sich direkt als Befehl in eine Fernbedienung übernehmen. Signale, die schon gelernt sind, werden erkannt.'],
-                ['type' => 'Label', 'caption' => 'Hinweis: Solange der Mitschnitt läuft, ist der Broadlink im Lernmodus (die Leuchte kann dauerhaft an sein). Lernt oder sendet eine Fernbedienung, pausiert er kurz. Wechselcode-Sender (z. B. Somfy RTS, moderne Garagentore) lassen sich protokollieren, aber nicht sinnvoll nachsenden.'],
+            'mitschnitt' => ['type' => 'ExpansionPanel', 'expanded' => $this->ReadPropertyBoolean('Mitschnitt'), 'caption' => IRHubText::t('📻  RF capture'), 'items' => [
+                ['type' => 'Label', 'caption' => IRHubText::t('Recording keeps the Broadlink ready to receive at all times and writes every RF signal with date and time to the log — e.g. hand transmitters, wireless doorbells or remote controls whose button you do not want to learn separately. An entry can be transferred directly as a command into a remote control. Signals that have already been learned are recognised.')],
+                ['type' => 'Label', 'caption' => IRHubText::t('Note: while recording is running, the Broadlink is in learning mode (the LED may stay on permanently). When a remote control learns or sends, it pauses briefly. Rolling-code transmitters (e.g. Somfy RTS, modern garage doors) can be logged but not meaningfully resent.')],
                 ['type' => 'Label', 'name' => 'MitschnittZeile', 'caption' => $this->mitschnittZeile()],
                 ['type' => 'Label', 'name' => 'SenderZeile', 'caption' => $this->senderZeile()],
                 ['type' => 'List', 'name' => 'ProtokollListe', 'rowCount' => 10, 'add' => false, 'delete' => false,
                     'columns' => [
-                        ['caption' => 'Zeitpunkt', 'name' => 'zeit', 'width' => '160px', 'add' => ''],
+                        ['caption' => IRHubText::t('Time'), 'name' => 'zeit', 'width' => '160px', 'add' => ''],
                         ['caption' => 'MHz', 'name' => 'mhz', 'width' => '70px', 'add' => ''],
                         ['caption' => 'Signal', 'name' => 'signal', 'width' => '230px', 'add' => ''],
-                        ['caption' => 'Pulsfolge (µs)', 'name' => 'folge', 'width' => 'auto', 'add' => ''],
-                        ['caption' => 'Wdh.', 'name' => 'wdh', 'width' => '55px', 'add' => ''],
-                        ['caption' => 'Sender', 'name' => 'sender', 'width' => '190px', 'add' => ''],
-                        ['caption' => 'Erkannt', 'name' => 'erkannt', 'width' => '200px', 'add' => ''],
+                        ['caption' => IRHubText::t('Pulse sequence (µs)'), 'name' => 'folge', 'width' => 'auto', 'add' => ''],
+                        ['caption' => IRHubText::t('Rep.'), 'name' => 'wdh', 'width' => '55px', 'add' => ''],
+                        ['caption' => IRHubText::t('Transmitter'), 'name' => 'sender', 'width' => '190px', 'add' => ''],
+                        ['caption' => IRHubText::t('Detected'), 'name' => 'erkannt', 'width' => '200px', 'add' => ''],
                         ['caption' => 'Code', 'name' => 'code', 'width' => '0px', 'visible' => false, 'add' => ''],
                     ],
                     'values' => $this->protokollWerte(),
                 ],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Select', 'name' => 'ZielFernbedienung', 'caption' => 'Übernehmen in', 'options' => $ziele, 'value' => count($ziele) === 2 ? $ziele[1]['value'] : 0],
-                    ['type' => 'ValidationTextBox', 'name' => 'UebernahmeName', 'caption' => 'als Befehl (Name)'],
-                    ['type' => 'Button', 'caption' => '📥 In Fernbedienung übernehmen', 'onClick' => 'echo IRBL_MitschnittUebernehmen($id, $ZielFernbedienung, $UebernahmeName, $ProtokollListe["code"]);'],
+                    ['type' => 'Select', 'name' => 'ZielFernbedienung', 'caption' => IRHubText::t('Transfer to'), 'options' => $ziele, 'value' => count($ziele) === 2 ? $ziele[1]['value'] : 0],
+                    ['type' => 'ValidationTextBox', 'name' => 'UebernahmeName', 'caption' => IRHubText::t('as command (name)')],
+                    ['type' => 'Button', 'caption' => IRHubText::t('📥 Transfer to remote control'), 'onClick' => 'echo IRBL_MitschnittUebernehmen($id, $ZielFernbedienung, $UebernahmeName, $ProtokollListe["code"]);'],
                 ]],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => '▶️ Ausgewähltes Signal senden', 'onClick' => 'echo IRBL_MitschnittSenden($id, $ProtokollListe["code"]);'],
-                    ['type' => 'Button', 'caption' => '📄 Als CSV exportieren', 'download' => 'IRHub-Funkmitschnitt.csv', 'onClick' => 'echo IRBL_MitschnittExport($id, "csv");'],
-                    ['type' => 'Button', 'caption' => '{ } Als JSON exportieren', 'download' => 'IRHub-Funkmitschnitt.json', 'onClick' => 'echo IRBL_MitschnittExport($id, "json");'],
-                    ['type' => 'Button', 'caption' => '🗑 Protokoll leeren', 'confirm' => 'Protokoll wirklich leeren?', 'onClick' => 'echo IRBL_ProtokollLeeren($id);'],
+                    ['type' => 'Button', 'caption' => IRHubText::t('▶️ Send selected signal'), 'onClick' => 'echo IRBL_MitschnittSenden($id, $ProtokollListe["code"]);'],
+                    ['type' => 'Button', 'caption' => IRHubText::t('📄 Export as CSV'), 'download' => IRHubText::t('IRHub-rf-capture.csv'), 'onClick' => 'echo IRBL_MitschnittExport($id, "csv");'],
+                    ['type' => 'Button', 'caption' => IRHubText::t('{ } Export as JSON'), 'download' => IRHubText::t('IRHub-rf-capture.json'), 'onClick' => 'echo IRBL_MitschnittExport($id, "json");'],
+                    ['type' => 'Button', 'caption' => IRHubText::t('🗑 Clear log'), 'confirm' => IRHubText::t('Really clear the log?'), 'onClick' => 'echo IRBL_ProtokollLeeren($id);'],
                 ]],
             ]],
         ];
@@ -799,19 +832,19 @@ class IRHubBroadlink extends IPSModule
     {
         $geraet = $this->geraet();
         if ($this->host() === '') {
-            return 'ℹ️ Noch keine IP-Adresse. Am einfachsten über den IRHub-Konfigurator suchen und anlegen.';
+            return IRHubText::t('ℹ️ No IP address yet. The easiest way is to search and create it via the IRHub configurator.');
         }
         $typ = (int)($geraet['typ'] ?? 0);
-        $kopf = $typ !== 0 ? IRHubBroadlinkProtokoll::modell($typ) . sprintf(' (0x%04X)', $typ) : 'Gerät';
-        $fw = isset($geraet['firmware']) ? ', Firmware ' . $geraet['firmware'] : '';
+        $kopf = $typ !== 0 ? IRHubBroadlinkProtokoll::modell($typ) . sprintf(' (0x%04X)', $typ) : IRHubText::t('Device');
         $fehler = $this->ReadAttributeString('LetzterFehler');
         if ($fehler !== '' && !in_array((int)$fehler, IRHubBroadlinkProtokoll::NOCH_NICHTS, true)) {
-            return '⚠️ ' . $kopf . ' an ' . $this->host() . ': ' . $this->fehlerText();
+            return IRHubText::t('⚠️ %s at %s: %s', $kopf, $this->host(), $this->fehlerText());
         }
         if ($typ === 0) {
-            return 'ℹ️ ' . $this->host() . ' — noch nicht abgefragt. „Verbindung prüfen" klicken.';
+            return IRHubText::t('ℹ️ %s — not queried yet. Click "Check connection".', $this->host());
         }
-        return '✅ ' . $kopf . ' an ' . $this->host() . $fw . (!empty($geraet['gesperrt']) ? ' — ⚠️ in der App als gesperrt markiert' : '');
+        $text = isset($geraet['firmware']) ? IRHubText::t('✅ %s at %s, firmware %s', $kopf, $this->host(), $geraet['firmware']) : IRHubText::t('✅ %s at %s', $kopf, $this->host());
+        return $text . (!empty($geraet['gesperrt']) ? ' — ' . IRHubText::t('⚠️ marked as locked in the app') : '');
     }
 
     private function statusZeileAuffrischen(): void

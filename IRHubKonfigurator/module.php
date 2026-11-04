@@ -19,6 +19,15 @@ class IRHubKonfigurator extends IPSModule
 {
     use IRHubFormular;
 
+    public function __construct(int $InstanceID)
+    {
+        parent::__construct($InstanceID);
+        // Bibliotheken und Kachel übersetzen über IRHubText (englische Quelltexte, Deutsch in locale.json).
+        IRHubText::setzen(function (string $text): string {
+            return $this->Translate($text);
+        });
+    }
+
     private const MODUL_BROADLINK = '{F15D8081-2D52-4E9C-818F-B81AFB93CF23}';
 
     public function Create()
@@ -40,7 +49,7 @@ class IRHubKonfigurator extends IPSModule
     public function Suchen(): string
     {
         if (!IRHubUdp::verfuegbar()) {
-            return '⛔ Die PHP-Erweiterung „sockets" fehlt in dieser Symcon-Installation — ohne sie kann IRHub nicht mit Broadlink-Geräten sprechen.';
+            return IRHubText::t('⛔ The PHP extension "sockets" is missing in this Symcon installation — without it IRHub cannot talk to Broadlink devices.');
         }
         $ziele = $this->ziele();
         $funde = [];
@@ -79,11 +88,11 @@ class IRHubKonfigurator extends IPSModule
     {
         $stand = $this->ReadAttributeInteger('LetzteSuche');
         if ($stand === 0) {
-            return 'ℹ️ Noch nicht gesucht — „🔎 Jetzt suchen" klicken.';
+            return IRHubText::t('ℹ️ Not searched yet — click "🔎 Search now".');
         }
-        $zeit = date('d.m.Y H:i', $stand);
+        $zeit = IRHubText::zeit($stand, false);
         if (count($funde) === 0) {
-            return '⚠️ Suche am ' . $zeit . ': kein Broadlink-Gerät hat geantwortet. Liegt das Gerät in einem anderen Netz (VLAN, Docker), seine IP-Adresse unten bei „Zusätzliche Suchadressen" eintragen.';
+            return IRHubText::t('⚠️ Search on %s: no Broadlink device responded. If the device is in another network (VLAN, Docker), enter its IP address below under "Additional search addresses".', $zeit);
         }
         $gesperrt = count(array_filter($funde, static function ($f) {
             return !empty($f['gesperrt']);
@@ -91,12 +100,14 @@ class IRHubKonfigurator extends IPSModule
         $unbekannt = count(array_filter($funde, static function ($f) {
             return $f['familie'] === null;
         }));
-        $text = '✅ Suche am ' . $zeit . ': ' . count($funde) . ' Gerät' . (count($funde) === 1 ? '' : 'e') . ' gefunden.';
+        $text = count($funde) === 1
+            ? IRHubText::t('✅ Search on %s: 1 device found.', $zeit)
+            : IRHubText::t('✅ Search on %s: %d devices found.', $zeit, count($funde));
         if ($gesperrt > 0) {
-            $text .= ' ⚠️ ' . $gesperrt . ' davon in der Broadlink-App gesperrt — dort „Gerät sperren" ausschalten, sonst lehnt das Gerät die Anmeldung ab.';
+            $text .= ' ' . IRHubText::t('⚠️ %d of them locked in the Broadlink app — turn off "Lock device" there, otherwise the device refuses the login.', $gesperrt);
         }
         if ($unbekannt > 0) {
-            $text .= ' ℹ️ ' . $unbekannt . ' mit unbekannter Kennung — anlegen geht trotzdem, bitte Kennung melden.';
+            $text .= ' ' . IRHubText::t('ℹ️ %d with unknown identifier — creating still works, please report the identifier.', $unbekannt);
         }
         return $text;
     }
@@ -111,11 +122,13 @@ class IRHubKonfigurator extends IPSModule
         $werte = [];
         foreach ($funde as $f) {
             $iid = $vorhanden['mac:' . strtolower($f['mac'])] ?? ($vorhanden['ip:' . $f['ip']] ?? 0);
-            $hinweis = !empty($f['gesperrt']) ? '🔒 in der App gesperrt' : ($f['familie'] === null ? 'unbekannte Kennung' : 'bereit');
-            $name = $f['name'] !== '' ? $f['name'] : $f['modell'];
+            $hinweis = IRHubText::t(!empty($f['gesperrt']) ? '🔒 locked in the app' : ($f['familie'] === null ? 'unknown identifier' : 'ready'));
+            // Modellname aus der Kennung neu bilden: gespeicherte Funde älterer Versionen tragen den Text in der damaligen Sprache.
+            $modell = IRHubBroadlinkProtokoll::modell((int)$f['typ']);
+            $name = $f['name'] !== '' ? $f['name'] : $modell;
             $werte[] = [
                 'name'       => $name,
-                'modell'     => $f['modell'] . sprintf(' (0x%04X)', $f['typ']),
+                'modell'     => $modell . sprintf(' (0x%04X)', $f['typ']),
                 'ip'         => $f['ip'],
                 'mac'        => $f['mac'],
                 'hinweis'    => $hinweis,
@@ -131,7 +144,7 @@ class IRHubKonfigurator extends IPSModule
         $gezeigt = array_column($werte, 'instanceID');
         foreach (IPS_GetInstanceListByModuleID(self::MODUL_BROADLINK) as $iid) {
             if (!in_array($iid, $gezeigt, true)) {
-                $werte[] = ['name' => IPS_GetName($iid), 'modell' => '', 'ip' => (string)IPS_GetProperty($iid, 'Host'), 'mac' => (string)IPS_GetProperty($iid, 'MAC'), 'hinweis' => 'hat nicht geantwortet', 'instanceID' => $iid];
+                $werte[] = ['name' => IPS_GetName($iid), 'modell' => '', 'ip' => (string)IPS_GetProperty($iid, 'Host'), 'mac' => (string)IPS_GetProperty($iid, 'MAC'), 'hinweis' => IRHubText::t('did not respond'), 'instanceID' => $iid];
             }
         }
         return $werte;
@@ -145,16 +158,16 @@ class IRHubKonfigurator extends IPSModule
     protected function irhubZweck(): array
     {
         return [
-            'Der Konfigurator sucht Broadlink-Geräte (RM mini, RM pro, RM4 …) in deinem Netz und legt sie mit einem Klick als IRHub-Broadlink-Instanz an.',
-            'An diesen Instanzen legst du danach Fernbedienungen (Codes lernen und senden) und Klimaanlagen (Betriebsart, Temperatur, Lüfter) an.',
+            IRHubText::t('The configurator searches your network for Broadlink devices (RM mini, RM pro, RM4 …) and creates them as IRHub Broadlink instances with one click.'),
+            IRHubText::t('On these instances you then create remote controls (learn and send codes) and air conditioners (mode, temperature, fan).'),
         ];
     }
 
     protected function irhubDoku(): array
     {
         return [
-            'Die Suche schickt eine Broadlink-Suchnachricht an 255.255.255.255 (UDP Port 80). Router geben Broadcasts nicht in andere Netze weiter — Geräte in einem anderen VLAN oder hinter Docker findest du, indem du ihre IP-Adresse oder die Broadcast-Adresse ihres Netzes (z. B. 192.168.20.255) einträgst.',
-            'Gesperrte Geräte („Gerät sperren" in der Broadlink-App) werden gefunden, lehnen aber die Anmeldung ab. In der App entsperren, danach klappt es.',
+            IRHubText::t('The search sends a Broadlink discovery message to 255.255.255.255 (UDP port 80). Routers do not forward broadcasts into other networks — you find devices in another VLAN or behind Docker by entering their IP address or the broadcast address of their network (e.g. 192.168.20.255).'),
+            IRHubText::t('Locked devices ("Lock device" in the Broadlink app) are found but refuse the login. Unlock them in the app, then it works.'),
         ];
     }
 
@@ -162,18 +175,18 @@ class IRHubKonfigurator extends IPSModule
     {
         $funde = $this->funde();
         $fach = [
-            'suche' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🔎  Geräte suchen', 'items' => [
+            'suche' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('🔎  Search devices'), 'items' => [
                 ['type' => 'Label', 'name' => 'SuchZeile', 'caption' => $this->suchZeile($funde)],
-                ['type' => 'Button', 'caption' => '🔎 Jetzt suchen', 'onClick' => 'echo IRCFG_Suchen($id);'],
-                ['type' => 'ValidationTextBox', 'name' => 'Suchadressen', 'caption' => 'Zusätzliche Suchadressen (IP oder Netz-Broadcast, durch Komma getrennt)', 'width' => '600px'],
-                ['type' => 'Configurator', 'name' => 'Geraete', 'caption' => 'Gefundene Broadlink-Geräte', 'rowCount' => 8, 'add' => false, 'delete' => false,
+                ['type' => 'Button', 'caption' => IRHubText::t('🔎 Search now'), 'onClick' => 'echo IRCFG_Suchen($id);'],
+                ['type' => 'ValidationTextBox', 'name' => 'Suchadressen', 'caption' => IRHubText::t('Additional search addresses (IP or network broadcast, comma-separated)'), 'width' => '600px'],
+                ['type' => 'Configurator', 'name' => 'Geraete', 'caption' => IRHubText::t('Broadlink devices found'), 'rowCount' => 8, 'add' => false, 'delete' => false,
                     'sort' => ['column' => 'name', 'direction' => 'ascending'],
                     'columns' => [
                         ['caption' => 'Name', 'name' => 'name', 'width' => '200px'],
-                        ['caption' => 'Modell', 'name' => 'modell', 'width' => '200px'],
-                        ['caption' => 'IP-Adresse', 'name' => 'ip', 'width' => '140px'],
+                        ['caption' => IRHubText::t('Model'), 'name' => 'modell', 'width' => '200px'],
+                        ['caption' => IRHubText::t('IP address'), 'name' => 'ip', 'width' => '140px'],
                         ['caption' => 'MAC', 'name' => 'mac', 'width' => '160px'],
-                        ['caption' => 'Hinweis', 'name' => 'hinweis', 'width' => 'auto'],
+                        ['caption' => IRHubText::t('Note'), 'name' => 'hinweis', 'width' => 'auto'],
                     ],
                     'values' => $this->listenWerte($funde),
                 ],

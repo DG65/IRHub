@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/IRHubText.php';
+
 // ===========================================================================
 // Broadlink-Protokoll (UDP Port 80, AES-128-CBC) — reine Rechenlogik ohne Netz.
 //
@@ -73,22 +75,23 @@ class IRHubBroadlinkProtokoll
         0x5224 => ['rm5plus', 'RM5 plus'],
     ];
 
+    // Englische Quelltexte; übersetzt wird erst in fehlerText().
     public const FEHLERTEXTE = [
-        -1 => 'Anmeldung abgelehnt — das Gerät ist vermutlich in der Broadlink-App gesperrt',
-        -2 => 'vom Gerät abgemeldet',
-        -3 => 'Gerät offline',
-        -4 => 'Befehl wird von diesem Gerät nicht unterstützt',
-        -5 => 'Gerätespeicher voll bzw. noch kein Code empfangen',
-        -6 => 'Datenstruktur fehlerhaft',
-        -7 => 'Sitzungsschlüssel abgelaufen',
-        -8 => 'Sendefehler im Gerät',
-        -9 => 'Schreibfehler im Gerät',
-        -10 => 'Lesefehler im Gerät bzw. noch kein Code empfangen',
-        -11 => 'WLAN nicht gefunden',
-        -4000 => 'keine Antwort vom Gerät (IP-Adresse, WLAN und Stromversorgung prüfen)',
-        -4007 => 'Antwort zu kurz',
-        -4008 => 'Prüfsumme der Antwort falsch',
-        -4012 => 'Geräte-ID ungültig',
+        -1 => 'Login refused — the device is probably locked in the Broadlink app',
+        -2 => 'logged out by the device',
+        -3 => 'device offline',
+        -4 => 'command not supported by this device',
+        -5 => 'device memory full or no code received yet',
+        -6 => 'invalid data structure',
+        -7 => 'session key expired',
+        -8 => 'transmit error in the device',
+        -9 => 'write error in the device',
+        -10 => 'read error in the device or no code received yet',
+        -11 => 'Wi-Fi network not found',
+        -4000 => 'no response from the device (check IP address, Wi-Fi and power supply)',
+        -4007 => 'response too short',
+        -4008 => 'wrong checksum in the response',
+        -4012 => 'invalid device ID',
     ];
 
     // ---------------------------------------------------------------- Grundlagen
@@ -109,7 +112,7 @@ class IRHubBroadlinkProtokoll
 
     public static function modell(int $typ): string
     {
-        return self::GERAETE[$typ][1] ?? sprintf('unbekanntes Broadlink-Gerät 0x%04X', $typ);
+        return self::GERAETE[$typ][1] ?? IRHubText::t('unknown Broadlink device 0x%04X', $typ);
     }
 
     public static function kannFunk(int $typ): bool
@@ -132,7 +135,7 @@ class IRHubBroadlinkProtokoll
 
     public static function fehlerText(int $code): string
     {
-        return self::FEHLERTEXTE[$code] ?? ('Gerätefehler ' . $code);
+        return isset(self::FEHLERTEXTE[$code]) ? IRHubText::t(self::FEHLERTEXTE[$code]) : IRHubText::t('device error %d', $code);
     }
 
     public static function mitVorzeichen16(int $wert): int

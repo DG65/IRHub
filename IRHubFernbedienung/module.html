@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -61,17 +61,20 @@ body{padding-bottom:3em}
 <script>
 var daten = null, rueck = '', rueckFehler = false, rueckUhr = null;
 
+// Texte: englischer Schlüssel, Übersetzung liefert das Modul in daten.texte (locale.json); %s = Wert.
+function T(s, a) { var t = (daten && daten.texte && daten.texte[s]) || s; return a == null ? t : t.replace('%s', a); }
+
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
 
 // Taste drücken: requestAction() der Visualisierung, Ergebnis kommt per handleMessage zurück.
 function druecken(el, art, name) {
   el.classList.add('gedrueckt');
   setTimeout(function () { el.classList.remove('gedrueckt'); }, 180);
-  meldung('📤 „' + name + '" …', false);
+  meldung('📤 ' + T('“%s” …', name), false);
   if (typeof requestAction === 'function') {
     requestAction(art === 'folge' ? 'Folge' : 'Taste', name);
   } else {
-    meldung('⛔ Keine Verbindung zur Visualisierung', true);
+    meldung(T('⛔ No connection to the visualization'), true);
   }
 }
 
@@ -135,7 +138,7 @@ function zeichnen() {
   var d = daten; if (!d) { return; }
   var app = document.getElementById('app');
   if (!(d.tasten || []).length) {
-    app.innerHTML = '<div class="leerhinweis">Noch keine Tasten. In der Instanz Befehle lernen — sie erscheinen dann automatisch hier.</div>'
+    app.innerHTML = '<div class="leerhinweis">' + esc(T('No buttons yet. Learn commands in the instance — they will then appear here automatically.')) + '</div>'
       + '<div id="meldung" class="meldung"></div>';
     return;
   }
@@ -143,17 +146,17 @@ function zeichnen() {
   var ein = gruppe('ein');
   if (ein.length) {
     h += '<div class="reihe">' + ein.map(function (t) {
-      var gruen = /^(ein|an|on)$/i.test(t.name);
+      var gruen = /^(ein|an|on|power\s*on)$/i.test(t.name);
       return knopf(t, 'power' + (gruen ? ' gruen' : ''));
     }).join('') + '</div>';
   }
   var szenen = gruppe('szenen');
-  if (szenen.length) { h += abschnitt('Szenen', '<div class="reihe">' + szenen.map(function (t) { return knopf(t, 'szene'); }).join('') + '</div>'); }
-  var mitte = wippe('Lautstärke', gruppe('lautstaerke')) + kreuz(gruppe('navigation')) + wippe('Programm', gruppe('programme')) + ziffern(gruppe('ziffern'));
+  if (szenen.length) { h += abschnitt(T('Scenes'), '<div class="reihe">' + szenen.map(function (t) { return knopf(t, 'szene'); }).join('') + '</div>'); }
+  var mitte = wippe(T('Volume'), gruppe('lautstaerke')) + kreuz(gruppe('navigation')) + wippe(T('Channel'), gruppe('programme')) + ziffern(gruppe('ziffern'));
   if (mitte) { h += '<div class="mitte">' + mitte + '</div>'; }
-  [['wiedergabe', 'Wiedergabe'], ['quellen', 'Quellen'], ['weitere', 'Weitere']].forEach(function (g) {
+  [['wiedergabe', 'Playback'], ['quellen', 'Sources'], ['weitere', 'More']].forEach(function (g) {
     var t = gruppe(g[0]);
-    if (t.length) { h += abschnitt(g[1], '<div class="raster">' + t.map(function (x) { return knopf(x, ''); }).join('') + '</div>'); }
+    if (t.length) { h += abschnitt(T(g[1]), '<div class="raster">' + t.map(function (x) { return knopf(x, ''); }).join('') + '</div>'); }
   });
   h += '<div id="meldung" class="meldung' + (rueckFehler ? ' fehler' : '') + '">' + esc(rueck) + '</div>';
   app.innerHTML = h;
