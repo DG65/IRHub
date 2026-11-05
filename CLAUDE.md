@@ -20,6 +20,9 @@
 - Quelltexte englisch, Deutsch in `libs/locale.json` → `php .tools/locale-bauen.php` kopiert sie in alle vier
   Modulordner (Symcon liest locale.json nur dort). Bibliotheken übersetzen über `IRHubText::t()`, jedes Modul setzt
   im Konstruktor den Übersetzer. Kacheln: `KACHEL_TEXTE` je Modul + `T()` in module.html.
+- Übersetzer der Module = `IRHubText::mitTabelle()` (0.9.2): Symcon nur einmal nach der Sprache fragen (Probe „On/Off“),
+  dann die eigene locale.json lesen — `Translate()` liest die Datei bei jedem Aufruf (SUITE.md Stolperstein Translate).
+  Prüfstand: bei Sprachwechsel `IRHubText::vergessen()`.
 - Sprachabhängig auch `IRHubText::dezimal()/zeit()` (Komma/Datum) und die Export-Dateinamen.
 - Gespeicherte Anzeigetexte erst beim Anzeigen übersetzen (LetzterFehler mit `ALTE_FEHLERTEXTE`, Klima-Analyse
   `meldung`); alte deutsche Analyse-Texte bleiben bis zur nächsten Analyse deutsch.

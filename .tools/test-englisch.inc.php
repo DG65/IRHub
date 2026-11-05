@@ -101,6 +101,7 @@ $enDeutsch = function (string $s): bool {
 };
 $enAlt = $GLOBALS['SPRACHE'];
 $GLOBALS['SPRACHE'] = 'en';
+IRHubText::vergessen();
 $enReste = [];
 foreach (['IRHubKonfigurator', 'IRHubBroadlink', 'IRHubFernbedienung', 'IRHubKlima'] as $enModul) {
     $enId = neu($enModul);
@@ -115,6 +116,35 @@ foreach (['IRHubKonfigurator', 'IRHubBroadlink', 'IRHubFernbedienung', 'IRHubKli
 }
 pruef('Formulare auf Englisch ohne deutsche Reste', $enReste === [], implode(' | ', array_slice($enReste, 0, 6)) . ' (' . count($enReste) . ')');
 $GLOBALS['SPRACHE'] = 'de';
+IRHubText::vergessen();
 $enDeId = neu('IRHubFernbedienung');
 pruef('Formular auf Deutsch weiter deutsch', strpos((string)$GLOBALS['INST'][$enDeId]->GetConfigurationForm(), 'Befehl lernen') !== false);
+$GLOBALS['SPRACHE'] = $enAlt;
+IRHubText::vergessen();
+
+// Zwischenspeicher (SUITE.md Stolperstein Translate): Symcon liest bei jedem Translate() locale.json. IRHubText::mitTabelle
+// fragt nur einmal nach der Sprache; ein Formular darf nicht mehr hunderte Translate()-Aufrufe auslösen.
+$enAufrufe = 0;
+$enSprache = 'de';
+$enFrage = function (string $t) use (&$enAufrufe, &$enSprache): string {
+    $enAufrufe++;
+    if ($enSprache === 'fr') {
+        return '[fr] ' . $t;
+    }
+    return $enSprache === 'de' ? ($GLOBALS['LOCALE']['de'][$t] ?? $t) : $t;
+};
+$enAlt = $GLOBALS['SPRACHE'];
+foreach (['de' => 'Ein/Aus', 'en' => 'On/Off', 'fr' => '[fr] On/Off'] as $enS => $enErwartet) {
+    $enSprache = $enS;
+    $enAufrufe = 0;
+    IRHubText::vergessen();
+    $enF = IRHubText::mitTabelle($enFrage, $ROOT . '/IRHubKlima/locale.json');
+    $enTexte = array_keys($enDe);
+    $enAus = array_map($enF, array_merge($enTexte, $enTexte));   // jeder Text zweimal
+    $enRichtig = $enF('On/Off') === $enErwartet && $enAus[array_search('📻  RF capture', $enTexte, true)] === ($enS === 'de' ? '📻  Funk-Mitschnitt' : ($enS === 'fr' ? '[fr] 📻  RF capture' : '📻  RF capture'));
+    pruef("Zwischenspeicher $enS: richtige Texte, Symcon nur " . ($enS === 'fr' ? 'einmal je Text' : 'einmal') . ' gefragt',
+        $enRichtig && $enAufrufe === ($enS === 'fr' ? count($enTexte) : 1), "$enAufrufe Aufrufe");
+}
+IRHubText::vergessen();
+IRHubText::setzen('irhubUebersetze');
 $GLOBALS['SPRACHE'] = $enAlt;

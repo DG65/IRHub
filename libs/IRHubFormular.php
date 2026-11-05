@@ -63,6 +63,9 @@ trait IRHubFormular
         '0.9.1' => [
             '• Messages: a Broadlink device without a name is called by its IP address, the code table suggestions end cleanly, and a failed send appears only once in the messages window.',
         ],
+        '0.9.2' => [
+            '• Faster forms: IRHub asks Symcon for the language only once and then reads its translation table itself.',
+        ],
     ];
 
     private static $IRHUB_REPO_URL     = 'https://github.com/DG65/IRHub';
