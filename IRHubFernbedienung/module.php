@@ -26,10 +26,10 @@ class IRHubFernbedienung extends IPSModule
     {
         parent::__construct($InstanceID);
         // Bibliotheken und Kachel übersetzen über IRHubText (englische Quelltexte, Deutsch in locale.json);
-        // Symcon wird nur einmal nach der Sprache gefragt, die Tabelle liest IRHubText selbst.
-        IRHubText::setzen(IRHubText::mitTabelle(function (string $text): string {
+        // jeder Text wird Symcon höchstens einmal je Prozess vorgelegt (Merkliste).
+        IRHubText::setzen(IRHubText::mitMerkliste(function (string $text): string {
             return $this->Translate($text);
-        }, __DIR__ . '/locale.json'));
+        }));
     }
 
     private const PAUSE_MS = 400;

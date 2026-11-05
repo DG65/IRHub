@@ -18,45 +18,42 @@ final class IRHubText
     /** @var callable|null fn(string): string */
     private static $uebersetzer = null;
 
-    /** @var array<string,string>|false|null deutsche Tabelle aus locale.json, [] = Englisch, false = andere Sprache */
-    private static $tabelle = null;
-    /** @var array<string,string> gemerkte Ergebnisse, wenn weder Deutsch noch Englisch */
+    /** @var array<string,string> gemerkte Übersetzungen */
     private static $gemerkt = [];
-
-    /** Probetext für die Sprachwahl (steht in locale.json). */
-    private const PROBE = 'On/Off';
+    /** @var int Zähler für den Prüfstand: wie oft wurde Symcon wirklich gefragt */
+    public static $anfragen = 0;
 
     public static function setzen(?callable $uebersetzer): void
     {
         self::$uebersetzer = $uebersetzer;
+        self::$gemerkt = [];
     }
 
     /**
-     * Übersetzer für die Module: Symcons Translate() liest bei jedem Aufruf locale.json, ein Formular braucht
-     * 70–180 Texte (live 04.11.2026: Klima-Formular 0,87 s). Deshalb fragt IRHub Symcon nur einmal, in welcher Sprache
-     * es läuft, und liest die Tabelle selbst (Muster Automat, SUITE.md Stolperstein Translate). Bei einer anderen
-     * Sprache als Deutsch/Englisch oder unlesbarer Tabelle wird jeder Text einmal bei Symcon nachgefragt und gemerkt.
+     * Übersetzer für die Module: Symcons Translate(), aber je Text nur einmal je Prozess. Translate() liest bei jedem
+     * Aufruf locale.json, ein Formular braucht 70–180 Texte (live 04.11.2026: Klima-Formular 0,87 s). Die Datei selbst
+     * zu lesen (0.9.2) wäre schneller, ist aber ein Dateizugriff, den die Store-Richtlinie nur als genehmigte Ausnahme
+     * erlaubt — deshalb seit 0.9.3 die Merkliste (SUITE.md Stolperstein 24, Vorbild WPModbusHub).
      */
-    public static function mitTabelle(callable $translate, string $localeDatei): callable
+    public static function mitMerkliste(callable $translate): callable
     {
-        return function (string $text) use ($translate, $localeDatei): string {
-            if (self::$tabelle === null) {
-                $ziel = (string)$translate(self::PROBE);
-                $de = $ziel === self::PROBE ? [] : (json_decode((string)@file_get_contents($localeDatei), true)['translations']['de'] ?? []);
-                self::$tabelle = $ziel === self::PROBE || ($de[self::PROBE] ?? null) === $ziel ? $de : false;
-                self::$gemerkt[self::PROBE] = $ziel;
+        return function (string $text) use ($translate): string {
+            if (!isset(self::$gemerkt[$text])) {
+                self::$anfragen++;
+                try {
+                    self::$gemerkt[$text] = (string)$translate($text);
+                } catch (\Throwable $e) {
+                    // z. B. Instanz während des Aufrufs gelöscht: Quelltext zeigen, nichts merken.
+                    return $text;
+                }
             }
-            if (self::$tabelle !== false) {
-                return self::$tabelle[$text] ?? $text;
-            }
-            return self::$gemerkt[$text] ?? (self::$gemerkt[$text] = (string)$translate($text));
+            return self::$gemerkt[$text];
         };
     }
 
-    /** Nur für den Prüfstand: Sprachwahl vergessen (Sprachwechsel). */
+    /** Nur für den Prüfstand: gemerkte Übersetzungen vergessen (Sprachwechsel). */
     public static function vergessen(): void
     {
-        self::$tabelle = null;
         self::$gemerkt = [];
     }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.3 (05.11.2026)
+
+- Übersetzung über eine Merkliste statt eigener Tabelle: jeder Text wird Symcon höchstens einmal je Prozess vorgelegt, IRHub liest locale.json nicht mehr selbst. Grund: Die Store-Richtlinie erlaubt Dateizugriff nur als genehmigte Ausnahme (Verbund-Entscheidung 05.11.2026, SUITE.md Stolperstein 24, Vorbild WPModbusHub).
+
 ## 0.9.2 (05.11.2026)
 
 - Übersetzung mit Zwischenspeicher (Verbund-Hinweis SUITE.md, Muster Automat): Symcons Translate() liest bei jedem Aufruf die locale.json, ein Formular braucht 70–180 Texte (Klima-Formular live 0,87 s). IRHub fragt jetzt nur einmal nach der Sprache und liest die Tabelle selbst; bei anderen Sprachen wird jeder Text einmal gefragt und gemerkt.

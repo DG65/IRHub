@@ -122,8 +122,8 @@ pruef('Formular auf Deutsch weiter deutsch', strpos((string)$GLOBALS['INST'][$en
 $GLOBALS['SPRACHE'] = $enAlt;
 IRHubText::vergessen();
 
-// Zwischenspeicher (SUITE.md Stolperstein Translate): Symcon liest bei jedem Translate() locale.json. IRHubText::mitTabelle
-// fragt nur einmal nach der Sprache; ein Formular darf nicht mehr hunderte Translate()-Aufrufe auslösen.
+// Merkliste (SUITE.md Stolperstein 24): Symcon liest bei jedem Translate() locale.json. IRHubText::mitMerkliste legt jeden
+// Text Symcon höchstens einmal je Prozess vor und liest die Datei nie selbst (Dateizugriff nur als genehmigte Ausnahme).
 $enAufrufe = 0;
 $enSprache = 'de';
 $enFrage = function (string $t) use (&$enAufrufe, &$enSprache): string {
@@ -134,17 +134,20 @@ $enFrage = function (string $t) use (&$enAufrufe, &$enSprache): string {
     return $enSprache === 'de' ? ($GLOBALS['LOCALE']['de'][$t] ?? $t) : $t;
 };
 $enAlt = $GLOBALS['SPRACHE'];
-foreach (['de' => 'Ein/Aus', 'en' => 'On/Off', 'fr' => '[fr] On/Off'] as $enS => $enErwartet) {
+foreach (['de' => '📻  Funk-Mitschnitt', 'en' => '📻  RF capture', 'fr' => '[fr] 📻  RF capture'] as $enS => $enErwartet) {
     $enSprache = $enS;
     $enAufrufe = 0;
-    IRHubText::vergessen();
-    $enF = IRHubText::mitTabelle($enFrage, $ROOT . '/IRHubKlima/locale.json');
+    $enF = IRHubText::mitMerkliste($enFrage);
+    IRHubText::setzen($enF);
     $enTexte = array_keys($enDe);
     $enAus = array_map($enF, array_merge($enTexte, $enTexte));   // jeder Text zweimal
-    $enRichtig = $enF('On/Off') === $enErwartet && $enAus[array_search('📻  RF capture', $enTexte, true)] === ($enS === 'de' ? '📻  Funk-Mitschnitt' : ($enS === 'fr' ? '[fr] 📻  RF capture' : '📻  RF capture'));
-    pruef("Zwischenspeicher $enS: richtige Texte, Symcon nur " . ($enS === 'fr' ? 'einmal je Text' : 'einmal') . ' gefragt',
-        $enRichtig && $enAufrufe === ($enS === 'fr' ? count($enTexte) : 1), "$enAufrufe Aufrufe");
+    pruef("Merkliste $enS: richtige Texte, Symcon je Text nur einmal gefragt",
+        $enAus[array_search('📻  RF capture', $enTexte, true)] === $enErwartet && IRHubText::t('📻  RF capture') === $enErwartet && $enAufrufe === count($enTexte), "$enAufrufe Aufrufe für " . count($enTexte) . ' Texte');
 }
-IRHubText::vergessen();
+// Wirft Translate (z. B. Instanz währenddessen gelöscht), bleibt der Quelltext stehen und nichts wird gemerkt.
+IRHubText::setzen(IRHubText::mitMerkliste(function (string $t): string { throw new RuntimeException('Instanz weg'); }));
+pruef('Merkliste: Ausnahme in Translate → Quelltext', IRHubText::t('On/Off') === 'On/Off');
+$enQuelle = (string)file_get_contents($ROOT . '/libs/IRHubText.php');
+pruef('IRHubText liest keine Dateien (Store: Dateizugriff nur als Ausnahme)', !preg_match('/file_get_contents|fopen|file\(/', $enQuelle));
 IRHubText::setzen('irhubUebersetze');
 $GLOBALS['SPRACHE'] = $enAlt;

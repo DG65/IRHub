@@ -64,7 +64,7 @@ trait IRHubFormular
             '• Messages: a Broadlink device without a name is called by its IP address, the code table suggestions end cleanly, and a failed send appears only once in the messages window.',
         ],
         '0.9.2' => [
-            '• Faster forms: IRHub asks Symcon for the language only once and then reads its translation table itself.',
+            '• Faster forms: IRHub asks Symcon for each text only once and remembers the translation.',
         ],
     ];
 
