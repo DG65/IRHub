@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.4 (09.11.2026)
+
+- Formulare nicht mehr selbst übersetzt (Store-Checkliste Punkt 25, Review WPModbusHub 06.11.2026): feste Beschriftungen, Rückfragen und Optionen bleiben englischer Quelltext, die Konsole übersetzt sie über locale.json. Selbst übersetzt werden nur noch Texte mit eingesetzten Werten, Meldungen, Variablennamen, Listeninhalte und die Kacheln.
+- Prüfstand bildet die Übersetzung der Konsole nach (auch bei UpdateFormField) und prüft, dass jeder feste Formulartext in locale.json steht.
+
 ## 0.9.3 (05.11.2026)
 
 - Übersetzung über eine Merkliste statt eigener Tabelle: jeder Text wird Symcon höchstens einmal je Prozess vorgelegt, IRHub liest locale.json nicht mehr selbst. Grund: Die Store-Richtlinie erlaubt Dateizugriff nur als genehmigte Ausnahme (Verbund-Entscheidung 05.11.2026, SUITE.md Stolperstein 24, Vorbild WPModbusHub).

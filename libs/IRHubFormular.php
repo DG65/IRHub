@@ -144,8 +144,8 @@ trait IRHubFormular
         foreach ($this->irhubZweck() as $zeile) {
             $items[] = ['type' => 'Label', 'caption' => $zeile];
         }
-        $items[] = ['type' => 'Button', 'caption' => IRHubText::t('Got it – don\'t show again'), 'onClick' => $this->irhubPrefix() . '_AckPurposeIntro($id);'];
-        return ['type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true, 'caption' => IRHubText::t('👋  What is this module for?'), 'items' => $items];
+        $items[] = ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => $this->irhubPrefix() . '_AckPurposeIntro($id);'];
+        return ['type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true, 'caption' => '👋  What is this module for?', 'items' => $items];
     }
 
     protected function formNeu(): ?array
@@ -168,10 +168,10 @@ trait IRHubFormular
         foreach ($offen as $version => $zeilen) {
             $items[] = ['type' => 'Label', 'caption' => IRHubText::t('Version %s:', $version)];
             foreach ($zeilen as $zeile) {
-                $items[] = ['type' => 'Label', 'caption' => IRHubText::t($zeile)];
+                $items[] = ['type' => 'Label', 'caption' => $zeile];   // die Konsole übersetzt Beschriftungen selbst
             }
         }
-        $items[] = ['type' => 'Button', 'caption' => IRHubText::t('Got it – don\'t show again'), 'onClick' => $this->irhubPrefix() . '_AckNews($id);'];
+        $items[] = ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => $this->irhubPrefix() . '_AckNews($id);'];
         $keys = array_keys($offen);
         return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true, 'caption' => IRHubText::t('🆕  New up to version %s', end($keys)), 'items' => $items];
     }
@@ -186,8 +186,8 @@ trait IRHubFormular
         foreach ($this->irhubDoku() as $zeile) {
             $items[] = ['type' => 'Label', 'caption' => $zeile];
         }
-        $items[] = ['type' => 'Button', 'caption' => IRHubText::t('Manual on GitHub'), 'onClick' => "echo '" . self::$IRHUB_REPO_URL . "';", 'link' => true];
-        return ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => IRHubText::t('📖  Documentation & help'), 'items' => $items];
+        $items[] = ['type' => 'Button', 'caption' => 'Manual on GitHub', 'onClick' => "echo '" . self::$IRHUB_REPO_URL . "';", 'link' => true];
+        return ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📖  Documentation & help', 'items' => $items];
     }
 
     protected function formRueckmeldung(): ?array
@@ -198,12 +198,12 @@ trait IRHubFormular
         // Forum-Thread seit 0.2.1; GitHub bleibt als zweiter Weg für Fehlerberichte.
         return [
             'type' => 'ExpansionPanel', 'name' => 'ForumHintPanel', 'expanded' => true,
-            'caption' => IRHubText::t('💬  Feedback'),
+            'caption' => '💬  Feedback',
             'items' => [
-                ['type' => 'Label', 'caption' => IRHubText::t('🧪 IRHub is new. Does your device work? Is something missing, or does the module report an unknown Broadlink model? Feel free to post in the IRHub thread in the Symcon forum — with the model and the device ID from the configurator.')],
-                ['type' => 'Button', 'caption' => IRHubText::t('Go to the forum thread'), 'onClick' => "echo '" . self::$IRHUB_FORUM_URL . "';", 'link' => true],
-                ['type' => 'Button', 'caption' => IRHubText::t('Report a bug on GitHub'), 'onClick' => "echo '" . self::$IRHUB_ISSUES_URL . "';", 'link' => true],
-                ['type' => 'Button', 'caption' => IRHubText::t('Got it – don\'t show again'), 'onClick' => $this->irhubPrefix() . '_AckForumHint($id);'],
+                ['type' => 'Label', 'caption' => '🧪 IRHub is new. Does your device work? Is something missing, or does the module report an unknown Broadlink model? Feel free to post in the IRHub thread in the Symcon forum — with the model and the device ID from the configurator.'],
+                ['type' => 'Button', 'caption' => 'Go to the forum thread', 'onClick' => "echo '" . self::$IRHUB_FORUM_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Report a bug on GitHub', 'onClick' => "echo '" . self::$IRHUB_ISSUES_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => $this->irhubPrefix() . '_AckForumHint($id);'],
             ],
         ];
     }
@@ -213,14 +213,14 @@ trait IRHubFormular
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => IRHubText::t('🧡  About this module'),
+            'caption' => '🧡  About this module',
             'items' => [
-                ['type' => 'Label', 'caption' => IRHubText::t('Born out of real enthusiasm for my own setup — and quite a few evenings of typing. Still: hobby software or not, this is intellectual property and real work went into it.')],
-                ['type' => 'Label', 'caption' => IRHubText::t('License: PolyForm Noncommercial 1.0.0 — free for private and non-commercial use; commercial use requires a separate license from the rights holder.')],
-                ['type' => 'Button', 'caption' => IRHubText::t('View license text'), 'onClick' => "echo '" . self::$IRHUB_LICENSE_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => IRHubText::t('Commercial use or questions about the license? Just get in touch: dietmar@gureth.eu')],
-                ['type' => 'Label', 'caption' => IRHubText::t('You like the module and would like to leave something anyway? I am happy about a small donation — completely voluntary, nothing required in return.')],
-                ['type' => 'Button', 'caption' => IRHubText::t('☕  Donate via PayPal'), 'onClick' => "echo '" . self::$IRHUB_PAYPAL_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Born out of real enthusiasm for my own setup — and quite a few evenings of typing. Still: hobby software or not, this is intellectual property and real work went into it.'],
+                ['type' => 'Label', 'caption' => 'License: PolyForm Noncommercial 1.0.0 — free for private and non-commercial use; commercial use requires a separate license from the rights holder.'],
+                ['type' => 'Button', 'caption' => 'View license text', 'onClick' => "echo '" . self::$IRHUB_LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Commercial use or questions about the license? Just get in touch: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'You like the module and would like to leave something anyway? I am happy about a small donation — completely voluntary, nothing required in return.'],
+                ['type' => 'Button', 'caption' => '☕  Donate via PayPal', 'onClick' => "echo '" . self::$IRHUB_PAYPAL_URL . "';", 'link' => true],
             ],
         ];
     }
@@ -326,32 +326,33 @@ trait IRHubFormular
         $ausgeblendet = [];
         foreach ($standard as $z) {
             $g = $gespeichert[$z['Key']] ?? ['zustand' => 'std', 'pos' => null];
-            $zeilen[] = ['Key' => $z['Key'], 'Panel' => $z['Panel'], 'Opened' => $g['zustand'] === 'open', 'Closed' => $g['zustand'] === 'closed',
+            // Listenwerte übersetzt die Konsole nicht (nur Beschriftungen): Panelnamen hier selbst übersetzen.
+            $zeilen[] = ['Key' => $z['Key'], 'Panel' => IRHubText::t($z['Panel']), 'Opened' => $g['zustand'] === 'open', 'Closed' => $g['zustand'] === 'closed',
                 'Hidden' => $g['zustand'] === 'hidden', 'Pos' => $g['pos'] ?? $z['Pos']];
             if ($g['zustand'] === 'hidden') {
-                $ausgeblendet[] = trim((string)preg_replace('/^[^\p{L}\p{N}]+/u', '', $z['Panel']));
+                $ausgeblendet[] = trim((string)preg_replace('/^[^\p{L}\p{N}]+/u', '', IRHubText::t($z['Panel'])));
             }
         }
         $items = [];
         if (count($ausgeblendet) > 0) {
             $items[] = ['type' => 'Label', 'caption' => IRHubText::t('🙈 Hidden: %s — to show again, clear the "Hidden" checkbox. Hidden sections keep working, only the display is missing.', implode(', ', $ausgeblendet))];
         }
-        $items[] = ['type' => 'Label', 'caption' => IRHubText::t('Here you decide which sections are expanded when the form opens and in which order they appear. Symcon does not remember expanding and collapsing itself, so this setting applies every time the form opens — after "Apply", from the next time the form is opened.')];
-        $items[] = ['type' => 'Label', 'caption' => IRHubText::t('No checkbox means "default": as the module intends. "Hidden" only removes a section from the display; its settings are kept and keep working. If several checkboxes are set, "Hidden" wins over "Collapsed", which wins over "Expanded". The position is a number; with equal numbers the default order applies. Sections "below, in the actions" appear below the settings in Symcon and are only sorted among themselves. Fixed at the top are "What is this module for?", "New" and "Documentation & help", at the bottom "Feedback" and "About this module".')];
+        $items[] = ['type' => 'Label', 'caption' => 'Here you decide which sections are expanded when the form opens and in which order they appear. Symcon does not remember expanding and collapsing itself, so this setting applies every time the form opens — after "Apply", from the next time the form is opened.'];
+        $items[] = ['type' => 'Label', 'caption' => 'No checkbox means "default": as the module intends. "Hidden" only removes a section from the display; its settings are kept and keep working. If several checkboxes are set, "Hidden" wins over "Collapsed", which wins over "Expanded". The position is a number; with equal numbers the default order applies. Sections "below, in the actions" appear below the settings in Symcon and are only sorted among themselves. Fixed at the top are "What is this module for?", "New" and "Documentation & help", at the bottom "Feedback" and "About this module".'];
         $items[] = [
-            'type' => 'List', 'name' => 'FormLayout', 'caption' => IRHubText::t('Sections'), 'rowCount' => count($zeilen), 'add' => false, 'delete' => false,
+            'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Sections', 'rowCount' => count($zeilen), 'add' => false, 'delete' => false,
             'loadValuesFromConfiguration' => false,
             'values' => $zeilen,
             'columns' => [
-                ['caption' => IRHubText::t('Section'), 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
-                ['caption' => IRHubText::t('Key'), 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
-                ['caption' => IRHubText::t('Expanded'), 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                ['caption' => IRHubText::t('Collapsed'), 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                ['caption' => IRHubText::t('🙈 Hidden'), 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                ['caption' => IRHubText::t('Position'), 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
+                ['caption' => 'Section', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                ['caption' => 'Key', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                ['caption' => 'Expanded', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                ['caption' => 'Collapsed', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                ['caption' => '🙈 Hidden', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
             ],
         ];
-        $items[] = ['type' => 'Button', 'caption' => IRHubText::t('↩️ Reset to default'), 'onClick' => 'echo ' . $this->irhubPrefix() . '_ResetFormLayout($id);'];
+        $items[] = ['type' => 'Button', 'caption' => '↩️ Reset to default', 'onClick' => 'echo ' . $this->irhubPrefix() . '_ResetFormLayout($id);'];
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
             'caption' => IRHubText::t('🪟  Form: layout%s', (count($ausgeblendet) > 0 ? IRHubText::t(' (%s hidden)', count($ausgeblendet)) : '')),

@@ -120,11 +120,11 @@ class IRHubTasten
     /** Auswahl für die Spalte „Gruppe" im Formular. */
     public static function gruppenOptionen(): array
     {
-        $o = [['caption' => IRHubText::t('automatic'), 'value' => '']];
+        $o = [['caption' => 'automatic', 'value' => '']];
         foreach (self::GRUPPEN as $k => $t) {
-            $o[] = ['caption' => IRHubText::t($t), 'value' => $k];
+            $o[] = ['caption' => $t, 'value' => $k];   // Formular-Option: die Konsole übersetzt selbst
         }
-        $o[] = ['caption' => IRHubText::t('not on the tile'), 'value' => self::AUSGEBLENDET];
+        $o[] = ['caption' => 'not on the tile', 'value' => self::AUSGEBLENDET];
         return $o;
     }
 }

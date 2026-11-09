@@ -494,19 +494,19 @@ class IRHubFernbedienung extends IPSModule
     protected function irhubZweck(): array
     {
         return [
-            IRHubText::t('A remote control in Symcon: you learn the buttons of your real remote (infrared or RF) once and then send them from the visualization, scripts and automations.'),
-            IRHubText::t('Any number of commands, sequences with pauses (e.g. “On, 2000, HDMI 1”) and import of ready-made codes from other systems (Base64, Hex, Pronto).'),
+            'A remote control in Symcon: you learn the buttons of your real remote (infrared or RF) once and then send them from the visualization, scripts and automations.',
+            'Any number of commands, sequences with pauses (e.g. “On, 2000, HDMI 1”) and import of ready-made codes from other systems (Base64, Hex, Pronto).',
         ];
     }
 
     protected function irhubDoku(): array
     {
         return [
-            IRHubText::t('Learning: enter a name, press “Learn infrared”, point the button of the original remote at the Broadlink device from 10–30 cm. Then “Test” — if the device responds, “Save”.'),
-            IRHubText::t('RF (433/315 MHz, Pro models only): “Search frequency” — hold the button until the frequency is found, then release and press once briefly. If the search fails, choose the fixed frequency.'),
-            IRHubText::t('Scripts: IRHUB_Senden($id, "On"), IRHUB_Folge($id, "On, 2000, HDMI 1"), IRHUB_Szene($id, "Movie night"), IRHUB_SendenCode($id, "JgC…") — all return true/false.'),
-            IRHubText::t('Tile: place the instance in the tile visualization. Buttons arrange themselves by name (Volume up/down → volume, 0–9 → number pad, Up/Down/OK → directional pad); group and symbol can be changed in the command list.'),
-            IRHubText::t('Please add air conditioners with the “Air conditioner” instance: their codes always contain the complete state.'),
+            'Learning: enter a name, press “Learn infrared”, point the button of the original remote at the Broadlink device from 10–30 cm. Then “Test” — if the device responds, “Save”.',
+            'RF (433/315 MHz, Pro models only): “Search frequency” — hold the button until the frequency is found, then release and press once briefly. If the search fails, choose the fixed frequency.',
+            'Scripts: IRHUB_Senden($id, "On"), IRHUB_Folge($id, "On, 2000, HDMI 1"), IRHUB_Szene($id, "Movie night"), IRHUB_SendenCode($id, "JgC…") — all return true/false.',
+            'Tile: place the instance in the tile visualization. Buttons arrange themselves by name (Volume up/down → volume, 0–9 → number pad, Up/Down/OK → directional pad); group and symbol can be changed in the command list.',
+            'Please add air conditioners with the “Air conditioner” instance: their codes always contain the complete state.',
         ];
     }
 
@@ -514,81 +514,81 @@ class IRHubFernbedienung extends IPSModule
     {
         $info = $this->geraetInfo();
         $fach = [
-            'kachel' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => IRHubText::t('📱  Tile'), 'items' => [
-                ['type' => 'Label', 'caption' => IRHubText::t('This instance is itself a tile for the tile visualization: a keypad with on/off, volume and channel rockers, directional pad, number pad and scenes. When enlarged, Symcon shows the “Command” variable instead.')],
-                ['type' => 'Select', 'name' => 'Farbschema', 'caption' => IRHubText::t('Tile colors'), 'options' => [
-                    ['caption' => IRHubText::t('automatic (like the visualization)'), 'value' => 0],
-                    ['caption' => IRHubText::t('light'), 'value' => 1],
-                    ['caption' => IRHubText::t('dark'), 'value' => 2],
+            'kachel' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📱  Tile', 'items' => [
+                ['type' => 'Label', 'caption' => 'This instance is itself a tile for the tile visualization: a keypad with on/off, volume and channel rockers, directional pad, number pad and scenes. When enlarged, Symcon shows the “Command” variable instead.'],
+                ['type' => 'Select', 'name' => 'Farbschema', 'caption' => 'Tile colors', 'options' => [
+                    ['caption' => 'automatic (like the visualization)', 'value' => 0],
+                    ['caption' => 'light', 'value' => 1],
+                    ['caption' => 'dark', 'value' => 2],
                 ]],
             ]],
-            'geraet' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => IRHubText::t('📡  Broadlink device'), 'items' => [
+            'geraet' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📡  Broadlink device', 'items' => [
                 ['type' => 'Label', 'caption' => count($info) > 0
                     ? IRHubText::t($info['funk'] ? '🔗 Sends via %s (%s, infrared and RF)' : '🔗 Sends via %s (%s, infrared only)', IPS_GetName((int)IPS_GetInstance($this->InstanceID)['ConnectionID']), $info['modell'])
                     : IRHubText::t('⛔ No reachable Broadlink device connected — choose an IRHub Broadlink instance under “Change gateway”.')],
             ]],
         ];
         $aktionen = [
-            'lernen' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('📥  Learn or paste a command'), 'items' => array_merge(
+            'lernen' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📥  Learn or paste a command', 'items' => array_merge(
                 [
-                    ['type' => 'Label', 'caption' => IRHubText::t('How it works:  1. enter a name  →  2. click “Learn infrared”  →  3. while the bar is running (30 s), briefly press the button of the original remote once from 10–30 cm  →  4. “Test”  →  5. if the device responds: “Save”, otherwise “Discard” and learn again.')],
-                    ['type' => 'Label', 'caption' => IRHubText::t('RF (Pro models only):  click “Search frequency”  →  hold the button until “Frequency found” appears  →  release  →  press once briefly. If the search fails, choose the fixed frequency.'), 'visible' => !empty($info['funk'])],
-                    ['type' => 'ValidationTextBox', 'name' => 'NeuerName', 'caption' => IRHubText::t('Name (e.g. On, Volume up, HDMI 1)')],
+                    ['type' => 'Label', 'caption' => 'How it works:  1. enter a name  →  2. click “Learn infrared”  →  3. while the bar is running (30 s), briefly press the button of the original remote once from 10–30 cm  →  4. “Test”  →  5. if the device responds: “Save”, otherwise “Discard” and learn again.'],
+                    ['type' => 'Label', 'caption' => 'RF (Pro models only):  click “Search frequency”  →  hold the button until “Frequency found” appears  →  release  →  press once briefly. If the search fails, choose the fixed frequency.', 'visible' => !empty($info['funk'])],
+                    ['type' => 'ValidationTextBox', 'name' => 'NeuerName', 'caption' => 'Name (e.g. On, Volume up, HDMI 1)'],
                 ],
                 $this->lernElemente(!empty($info['funk']), 'echo IRHUB_GelerntSpeichern($id, $NeuerName);'),
                 [
-                    ['type' => 'ValidationTextBox', 'name' => 'ImportCode', 'caption' => IRHubText::t('or paste a ready-made code (Base64, Hex, Pronto, µs sequence)'), 'width' => '600px'],
-                    ['type' => 'Button', 'caption' => IRHubText::t('📋 Save code under this name'), 'onClick' => 'echo IRHUB_Importieren($id, $NeuerName, $ImportCode);'],
+                    ['type' => 'ValidationTextBox', 'name' => 'ImportCode', 'caption' => 'or paste a ready-made code (Base64, Hex, Pronto, µs sequence)', 'width' => '600px'],
+                    ['type' => 'Button', 'caption' => '📋 Save code under this name', 'onClick' => 'echo IRHUB_Importieren($id, $NeuerName, $ImportCode);'],
                 ]
             )],
-            'befehle' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('🎛️  Commands'), 'items' => [
-                ['type' => 'Label', 'caption' => IRHubText::t('Group and symbol determine where and how the button appears on the tile. Empty = automatic from the name (column “Automatic”). Double-click the cell to change it; “not on the tile” hides the button.')],
+            'befehle' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎛️  Commands', 'items' => [
+                ['type' => 'Label', 'caption' => 'Group and symbol determine where and how the button appears on the tile. Empty = automatic from the name (column “Automatic”). Double-click the cell to change it; “not on the tile” hides the button.'],
                 ['type' => 'List', 'name' => 'BefehlListe', 'rowCount' => 10, 'add' => false, 'delete' => false,
                     'onEdit' => 'echo IRHUB_TasteAnpassen($id, $BefehlListe["name"], $BefehlListe["gruppe"], $BefehlListe["symbol"]);',
                     'columns' => [
-                        ['caption' => IRHubText::t('Name'), 'name' => 'name', 'width' => '200px', 'add' => ''],
-                        ['caption' => IRHubText::t('Signal'), 'name' => 'art', 'width' => 'auto', 'add' => ''],
-                        ['caption' => IRHubText::t('Automatic'), 'name' => 'auto', 'width' => '150px', 'add' => ''],
-                        ['caption' => IRHubText::t('Group'), 'name' => 'gruppe', 'width' => '170px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => IRHubTasten::gruppenOptionen()]],
-                        ['caption' => IRHubText::t('Symbol'), 'name' => 'symbol', 'width' => '80px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Name', 'name' => 'name', 'width' => '200px', 'add' => ''],
+                        ['caption' => 'Signal', 'name' => 'art', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Automatic', 'name' => 'auto', 'width' => '150px', 'add' => ''],
+                        ['caption' => 'Group', 'name' => 'gruppe', 'width' => '170px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => IRHubTasten::gruppenOptionen()]],
+                        ['caption' => 'Symbol', 'name' => 'symbol', 'width' => '80px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                     ],
                     'values' => $this->listenWerte(),
                 ],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => IRHubText::t('▶️ Send'), 'onClick' => 'echo IRHUB_SendenTesten($id, $BefehlListe["name"]);'],
-                    ['type' => 'Button', 'caption' => IRHubText::t('✏️ Rename (name above)'), 'onClick' => 'echo IRHUB_Umbenennen($id, $BefehlListe["name"], $NeuerName);'],
-                    ['type' => 'Button', 'caption' => IRHubText::t('🗑 Delete'), 'confirm' => IRHubText::t('Really delete the command?'), 'onClick' => 'echo IRHUB_Loeschen($id, $BefehlListe["name"]);'],
+                    ['type' => 'Button', 'caption' => '▶️ Send', 'onClick' => 'echo IRHUB_SendenTesten($id, $BefehlListe["name"]);'],
+                    ['type' => 'Button', 'caption' => '✏️ Rename (name above)', 'onClick' => 'echo IRHUB_Umbenennen($id, $BefehlListe["name"], $NeuerName);'],
+                    ['type' => 'Button', 'caption' => '🗑 Delete', 'confirm' => 'Really delete the command?', 'onClick' => 'echo IRHUB_Loeschen($id, $BefehlListe["name"]);'],
                 ]],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => IRHubText::t('💾 Export all as JSON'), 'download' => IRHubText::t('IRHub-commands.json'), 'onClick' => 'echo IRHUB_BefehleExport($id, "json");'],
-                    ['type' => 'Button', 'caption' => IRHubText::t('📄 Export all as CSV'), 'download' => IRHubText::t('IRHub-commands.csv'), 'onClick' => 'echo IRHUB_BefehleExport($id, "csv");'],
-                    ['type' => 'SelectFile', 'name' => 'BefehleDatei', 'caption' => IRHubText::t('Read JSON file'), 'extensions' => '.json'],
-                    ['type' => 'Button', 'caption' => IRHubText::t('📤 Import file'), 'onClick' => 'echo IRHUB_BefehleImportDatei($id, $BefehleDatei);'],
+                    ['type' => 'Button', 'caption' => '💾 Export all as JSON', 'download' => IRHubText::t('IRHub-commands.json'), 'onClick' => 'echo IRHUB_BefehleExport($id, "json");'],
+                    ['type' => 'Button', 'caption' => '📄 Export all as CSV', 'download' => IRHubText::t('IRHub-commands.csv'), 'onClick' => 'echo IRHUB_BefehleExport($id, "csv");'],
+                    ['type' => 'SelectFile', 'name' => 'BefehleDatei', 'caption' => 'Read JSON file', 'extensions' => '.json'],
+                    ['type' => 'Button', 'caption' => '📤 Import file', 'onClick' => 'echo IRHUB_BefehleImportDatei($id, $BefehleDatei);'],
                 ]],
             ]],
-            'szenen' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => IRHubText::t('✨  Scenes (sequences as their own button)'), 'items' => [
-                ['type' => 'Label', 'caption' => IRHubText::t('A scene sends several commands in a row, e.g. “Movie night” = “On, 2000, HDMI 1, Volume up, Volume up”. Numbers are pauses in milliseconds. Each scene becomes a button on the tile.')],
+            'szenen' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '✨  Scenes (sequences as their own button)', 'items' => [
+                ['type' => 'Label', 'caption' => 'A scene sends several commands in a row, e.g. “Movie night” = “On, 2000, HDMI 1, Volume up, Volume up”. Numbers are pauses in milliseconds. Each scene becomes a button on the tile.'],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'ValidationTextBox', 'name' => 'SzeneName', 'caption' => IRHubText::t('Scene name')],
-                    ['type' => 'ValidationTextBox', 'name' => 'FolgeTest', 'caption' => IRHubText::t('Sequence'), 'width' => '400px'],
+                    ['type' => 'ValidationTextBox', 'name' => 'SzeneName', 'caption' => 'Scene name'],
+                    ['type' => 'ValidationTextBox', 'name' => 'FolgeTest', 'caption' => 'Sequence', 'width' => '400px'],
                 ]],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => IRHubText::t('▶️ Test sequence'), 'onClick' => 'echo IRHUB_Folge($id, $FolgeTest) ? ' . var_export(IRHubText::t('✅ Sequence sent.'), true) . ' : ' . var_export(IRHubText::t('⛔ At least one command was missing or failed — see messages.'), true) . ';'],
-                    ['type' => 'Button', 'caption' => IRHubText::t('💾 Save as scene'), 'onClick' => 'echo IRHUB_SzeneSpeichern($id, $SzeneName, $FolgeTest);'],
+                    ['type' => 'Button', 'caption' => '▶️ Test sequence', 'onClick' => 'echo IRHUB_Folge($id, $FolgeTest) ? ' . var_export(IRHubText::t('✅ Sequence sent.'), true) . ' : ' . var_export(IRHubText::t('⛔ At least one command was missing or failed — see messages.'), true) . ';'],
+                    ['type' => 'Button', 'caption' => '💾 Save as scene', 'onClick' => 'echo IRHUB_SzeneSpeichern($id, $SzeneName, $FolgeTest);'],
                 ]],
                 ['type' => 'List', 'name' => 'SzenenListe', 'rowCount' => 4, 'add' => false, 'delete' => false,
                     'columns' => [
-                        ['caption' => IRHubText::t('Scene'), 'name' => 'name', 'width' => '200px', 'add' => ''],
-                        ['caption' => IRHubText::t('Sequence'), 'name' => 'folge', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Scene', 'name' => 'name', 'width' => '200px', 'add' => ''],
+                        ['caption' => 'Sequence', 'name' => 'folge', 'width' => 'auto', 'add' => ''],
                     ],
                     'values' => $this->szenenWerte(),
                 ],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => IRHubText::t('▶️ Run scene'), 'onClick' => 'echo IRHUB_Szene($id, $SzenenListe["name"]) ? ' . var_export(IRHubText::t('✅ Scene executed.'), true) . ' : ' . var_export(IRHubText::t('⛔ Scene incomplete — see messages.'), true) . ';'],
-                    ['type' => 'Button', 'caption' => IRHubText::t('🗑 Delete scene'), 'confirm' => IRHubText::t('Really delete the scene?'), 'onClick' => 'echo IRHUB_SzeneLoeschen($id, $SzenenListe["name"]);'],
+                    ['type' => 'Button', 'caption' => '▶️ Run scene', 'onClick' => 'echo IRHUB_Szene($id, $SzenenListe["name"]) ? ' . var_export(IRHubText::t('✅ Scene executed.'), true) . ' : ' . var_export(IRHubText::t('⛔ Scene incomplete — see messages.'), true) . ';'],
+                    ['type' => 'Button', 'caption' => '🗑 Delete scene', 'confirm' => 'Really delete the scene?', 'onClick' => 'echo IRHUB_SzeneLoeschen($id, $SzenenListe["name"]);'],
                 ]],
             ]],
         ];
-        return $this->irhubFormular($fach, $aktionen, [['code' => 102, 'icon' => 'active', 'caption' => IRHubText::t('Ready')]]);
+        return $this->irhubFormular($fach, $aktionen, [['code' => 102, 'icon' => 'active', 'caption' => 'Ready']]);
     }
 }

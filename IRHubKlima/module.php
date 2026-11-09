@@ -693,18 +693,18 @@ class IRHubKlima extends IPSModule
     protected function irhubZweck(): array
     {
         return [
-            IRHubText::t('Turns an infrared air conditioner (split unit, monoblock, portable unit) into a controllable device in Symcon: on/off, mode, target temperature and fan — for visualization, schedules and automations.'),
-            IRHubText::t('Air conditioner remotes always send the complete state. That is why each combination needs its own code: learned yourself (assistant) or from a ready-made code table for your model.'),
+            'Turns an infrared air conditioner (split unit, monoblock, portable unit) into a controllable device in Symcon: on/off, mode, target temperature and fan — for visualization, schedules and automations.',
+            'Air conditioner remotes always send the complete state. That is why each combination needs its own code: learned yourself (assistant) or from a ready-made code table for your model.',
         ];
     }
 
     protected function irhubDoku(): array
     {
         return [
-            IRHubText::t('Code table: if your model is in the list, select "Code table (SmartIR)", select the model, click "Apply", then "Load code table". The tables come from the SmartIR project (MIT license) and are fetched from GitHub when needed.'),
-            IRHubText::t('Learning yourself: choose modes, fan levels and temperature range as narrowly as possible (each combination is one code). The assistant shows which state to set next on the original remote.'),
-            IRHubText::t('The unit reports nothing back via infrared. If it was changed with the original remote, Symcon keeps showing the state last sent from here.'),
-            IRHubText::t('Tile: place the instance in the tile visualization. −/+ change the target temperature (wait a moment, then it is sent), the symbols select the mode. "Send again" sends the last state once more, e.g. after someone used the original remote.'),
+            'Code table: if your model is in the list, select "Code table (SmartIR)", select the model, click "Apply", then "Load code table". The tables come from the SmartIR project (MIT license) and are fetched from GitHub when needed.',
+            'Learning yourself: choose modes, fan levels and temperature range as narrowly as possible (each combination is one code). The assistant shows which state to set next on the original remote.',
+            'The unit reports nothing back via infrared. If it was changed with the original remote, Symcon keeps showing the state last sent from here.',
+            'Tile: place the instance in the tile visualization. −/+ change the target temperature (wait a moment, then it is sent), the symbols select the mode. "Send again" sends the last state once more, e.g. after someone used the original remote.',
             IRHubText::t('Scripts: %s — all return true/false.', 'IRKLIMA_Setzen($id, true, "cool", 23, "auto"), IRKLIMA_Ausschalten($id), IRKLIMA_Wiederholen($id)'),
         ];
     }
@@ -714,7 +714,7 @@ class IRHubKlima extends IPSModule
         $tab = $this->tabelle();
         [$da, $alle] = IRHubKlimaTabelle::abdeckung($tab);
         $smartir = $this->ReadPropertyString('Quelle') === 'smartir';
-        $modelle = [['caption' => IRHubText::t('— please select —'), 'value' => 0]];
+        $modelle = [['caption' => '— please select —', 'value' => 0]];
         $verzeichnis = json_decode((string)@file_get_contents(__DIR__ . '/../libs/IRHubSmartIR.json'), true);
         foreach (is_array($verzeichnis) ? $verzeichnis : [] as $e) {
             $modelle[] = ['caption' => mb_substr($e['hersteller'] . ' – ' . $e['modelle'], 0, 90) . ' (' . $e['nr'] . ')', 'value' => (int)$e['nr']];
@@ -725,25 +725,25 @@ class IRHubKlima extends IPSModule
         }
         [$raumText, $raumFarbe] = $this->raumZeile();
         [, $raumQuelle] = $this->raumQuelle();
-        $raumFeld = ['type' => 'SelectVariable', 'name' => 'RaumTemperaturID', 'caption' => IRHubText::t('Temperature variable of the room (optional)'), 'width' => '500px'];
+        $raumFeld = ['type' => 'SelectVariable', 'name' => 'RaumTemperaturID', 'caption' => 'Temperature variable of the room (optional)', 'width' => '500px'];
         $fach = [
-            'kachel' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => IRHubText::t('📱  Tile and room temperature'), 'items' => [
-                ['type' => 'Label', 'caption' => IRHubText::t('This instance is itself a tile for the tile visualization: target temperature with −/+, on/off, mode, fan and the room temperature for comparison.')],
+            'kachel' => ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '📱  Tile and room temperature', 'items' => [
+                ['type' => 'Label', 'caption' => 'This instance is itself a tile for the tile visualization: target temperature with −/+, on/off, mode, fan and the room temperature for comparison.'],
                 ['type' => 'Label', 'caption' => $raumText, 'color' => $raumFarbe],
                 // Kommt der Wert automatisch, wird das Feld nicht gezeigt, sondern nur als bewusstes Überschreiben angeboten.
                 $raumQuelle === 'broadlink'
-                    ? ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => IRHubText::t('Use your own temperature variable instead'), 'items' => [$raumFeld]]
+                    ? ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => 'Use your own temperature variable instead', 'items' => [$raumFeld]]
                     : $raumFeld,
-                ['type' => 'Select', 'name' => 'Farbschema', 'caption' => IRHubText::t('Tile colors'), 'options' => [
-                    ['caption' => IRHubText::t('automatic (like the visualization)'), 'value' => 0],
-                    ['caption' => IRHubText::t('light'), 'value' => 1],
-                    ['caption' => IRHubText::t('dark'), 'value' => 2],
+                ['type' => 'Select', 'name' => 'Farbschema', 'caption' => 'Tile colors', 'options' => [
+                    ['caption' => 'automatic (like the visualization)', 'value' => 0],
+                    ['caption' => 'light', 'value' => 1],
+                    ['caption' => 'dark', 'value' => 2],
                 ]],
             ]],
-            'quelle' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('❄️  Code source'), 'items' => [
-                ['type' => 'Select', 'name' => 'Quelle', 'caption' => IRHubText::t('Where do the codes come from?'), 'options' => [
-                    ['caption' => IRHubText::t('Self-learned codes (works with any unit)'), 'value' => 'gelernt'],
-                    ['caption' => IRHubText::t('Code table (SmartIR) for my model'), 'value' => 'smartir'],
+            'quelle' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '❄️  Code source', 'items' => [
+                ['type' => 'Select', 'name' => 'Quelle', 'caption' => 'Where do the codes come from?', 'options' => [
+                    ['caption' => 'Self-learned codes (works with any unit)', 'value' => 'gelernt'],
+                    ['caption' => 'Code table (SmartIR) for my model', 'value' => 'smartir'],
                 ]],
                 ['type' => 'Label', 'caption' => ($da > 0 ? '✅ ' : 'ℹ️ ')
                     . ($tab['quelle'] === 'SmartIR'
@@ -752,67 +752,67 @@ class IRHubKlima extends IPSModule
                         : IRHubText::t('%s of %s codes available — %s modes, %s fan levels, %s–%s °C.', $da, $alle,
                             count($tab['betriebsarten']), count($tab['luefter']), $this->zahl($tab['minTemp']), $this->zahl($tab['maxTemp'])))],
             ]],
-            'smartir' => ['type' => 'ExpansionPanel', 'expanded' => $smartir, 'caption' => IRHubText::t('📚  Code table (SmartIR)'), 'items' => [
-                ['type' => 'Select', 'name' => 'SmartIRNr', 'caption' => IRHubText::t('Model'), 'options' => $modelle, 'width' => '700px'],
-                ['type' => 'Label', 'caption' => IRHubText::t('ℹ️ Model not listed? Many units are identical in construction to Midea, Gree or other big manufacturers — trying does no harm. Otherwise learn the codes yourself.')],
+            'smartir' => ['type' => 'ExpansionPanel', 'expanded' => $smartir, 'caption' => '📚  Code table (SmartIR)', 'items' => [
+                ['type' => 'Select', 'name' => 'SmartIRNr', 'caption' => 'Model', 'options' => $modelle, 'width' => '700px'],
+                ['type' => 'Label', 'caption' => 'ℹ️ Model not listed? Many units are identical in construction to Midea, Gree or other big manufacturers — trying does no harm. Otherwise learn the codes yourself.'],
             ]],
-            'umfang' => ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => IRHubText::t('🎓  Learning yourself: scope'), 'items' => [
+            'umfang' => ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => '🎓  Learning yourself: scope', 'items' => [
                 ['type' => 'ValidationTextBox', 'name' => 'Betriebsarten', 'caption' => IRHubText::t('Modes (%s)', implode(', ', $modusOptionen)), 'width' => '700px'],
-                ['type' => 'ValidationTextBox', 'name' => 'Luefter', 'caption' => IRHubText::t('Fan levels (e.g. auto or low, mid, high, auto)')],
+                ['type' => 'ValidationTextBox', 'name' => 'Luefter', 'caption' => 'Fan levels (e.g. auto or low, mid, high, auto)'],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'NumberSpinner', 'name' => 'MinTemp', 'caption' => IRHubText::t('from'), 'suffix' => '°C', 'digits' => 1, 'minimum' => 10, 'maximum' => 35],
-                    ['type' => 'NumberSpinner', 'name' => 'MaxTemp', 'caption' => IRHubText::t('to'), 'suffix' => '°C', 'digits' => 1, 'minimum' => 10, 'maximum' => 35],
-                    ['type' => 'Select', 'name' => 'Schritt', 'caption' => IRHubText::t('Step'), 'options' => [['caption' => '1 °C', 'value' => 1.0], ['caption' => $this->zahl(0.5) . ' °C', 'value' => 0.5]]],
+                    ['type' => 'NumberSpinner', 'name' => 'MinTemp', 'caption' => 'from', 'suffix' => '°C', 'digits' => 1, 'minimum' => 10, 'maximum' => 35],
+                    ['type' => 'NumberSpinner', 'name' => 'MaxTemp', 'caption' => 'to', 'suffix' => '°C', 'digits' => 1, 'minimum' => 10, 'maximum' => 35],
+                    ['type' => 'Select', 'name' => 'Schritt', 'caption' => 'Step', 'options' => [['caption' => '1 °C', 'value' => 1.0], ['caption' => $this->zahl(0.5) . ' °C', 'value' => 0.5]]],
                 ]],
                 ['type' => 'Label', 'caption' => IRHubText::t('ℹ️ Each combination is one code: %s states + off. Fewer is learned faster.', count($this->kombinationen($tab)) - 1)],
             ]],
         ];
         $aktionen = [];
         if ($smartir) {
-            $aktionen['laden'] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('📚  Load code table'), 'items' => [
-                ['type' => 'Button', 'caption' => IRHubText::t('⬇️ Load code table from GitHub'), 'onClick' => 'echo IRKLIMA_TabelleLaden($id);'],
-                ['type' => 'SelectFile', 'name' => 'TabellenDatei', 'caption' => IRHubText::t('or upload a SmartIR JSON file'), 'extensions' => '.json'],
-                ['type' => 'Button', 'caption' => IRHubText::t('📤 Apply file'), 'onClick' => 'echo IRKLIMA_TabelleHochladen($id, $TabellenDatei);'],
+            $aktionen['laden'] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📚  Load code table', 'items' => [
+                ['type' => 'Button', 'caption' => '⬇️ Load code table from GitHub', 'onClick' => 'echo IRKLIMA_TabelleLaden($id);'],
+                ['type' => 'SelectFile', 'name' => 'TabellenDatei', 'caption' => 'or upload a SmartIR JSON file', 'extensions' => '.json'],
+                ['type' => 'Button', 'caption' => '📤 Apply file', 'onClick' => 'echo IRKLIMA_TabelleHochladen($id, $TabellenDatei);'],
             ]];
         } else {
-            $aktionen['lernen'] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('🎓  Learn codes'), 'items' => array_merge(
+            $aktionen['lernen'] = ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎓  Learn codes', 'items' => array_merge(
                 [
-                    ['type' => 'Label', 'caption' => IRHubText::t('How it works:  1. The "Next" line names the state  →  2. set exactly this state on the original remote  →  3. click "Learn infrared"  →  4. while the bar is running (30 s), press a button that sends this state  →  5. "Test"  →  6. "Save" — then it automatically continues with the next state.')],
+                    ['type' => 'Label', 'caption' => 'How it works:  1. The "Next" line names the state  →  2. set exactly this state on the original remote  →  3. click "Learn infrared"  →  4. while the bar is running (30 s), press a button that sends this state  →  5. "Test"  →  6. "Save" — then it automatically continues with the next state.'],
                     ['type' => 'Label', 'name' => 'ZielZeile', 'caption' => $this->zielText()],
                 ],
                 $this->lernElemente(false, 'echo IRKLIMA_GelerntSpeichern($id);'),
                 [
                     ['type' => 'List', 'name' => 'KombiListe', 'rowCount' => 8, 'add' => false, 'delete' => false,
                         'columns' => [
-                            ['caption' => IRHubText::t('State'), 'name' => 'zustand', 'width' => '350px', 'add' => ''],
-                            ['caption' => IRHubText::t('Code'), 'name' => 'stand', 'width' => 'auto', 'add' => ''],
-                            ['caption' => IRHubText::t('Key'), 'name' => 'schluessel', 'width' => '0px', 'visible' => false, 'add' => ''],
+                            ['caption' => 'State', 'name' => 'zustand', 'width' => '350px', 'add' => ''],
+                            ['caption' => 'Code', 'name' => 'stand', 'width' => 'auto', 'add' => ''],
+                            ['caption' => 'Key', 'name' => 'schluessel', 'width' => '0px', 'visible' => false, 'add' => ''],
                         ],
                         'values' => $this->kombiWerte($tab),
                     ],
                     ['type' => 'RowLayout', 'items' => [
-                        ['type' => 'Button', 'caption' => IRHubText::t('🎯 Learn this combination'), 'onClick' => 'echo IRKLIMA_ZielWaehlen($id, $KombiListe["schluessel"]);'],
-                        ['type' => 'Button', 'caption' => IRHubText::t('▶️ Test'), 'onClick' => 'echo IRKLIMA_KombinationTesten($id, $KombiListe["schluessel"]);'],
-                        ['type' => 'Button', 'caption' => IRHubText::t('🗑 Delete code'), 'onClick' => 'echo IRKLIMA_KombinationLoeschen($id, $KombiListe["schluessel"]);'],
+                        ['type' => 'Button', 'caption' => '🎯 Learn this combination', 'onClick' => 'echo IRKLIMA_ZielWaehlen($id, $KombiListe["schluessel"]);'],
+                        ['type' => 'Button', 'caption' => '▶️ Test', 'onClick' => 'echo IRKLIMA_KombinationTesten($id, $KombiListe["schluessel"]);'],
+                        ['type' => 'Button', 'caption' => '🗑 Delete code', 'onClick' => 'echo IRKLIMA_KombinationLoeschen($id, $KombiListe["schluessel"]);'],
                     ]],
                 ]
             )];
         }
         $analyse = json_decode((string)$this->ReadAttributeString('Analyse'), true);
         $vorschlaege = (array)($analyse['vorschlaege'] ?? []);
-        $aktionen['finden'] = ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => IRHubText::t('🔍  Find a matching code table'), 'items' => [
-            ['type' => 'Label', 'caption' => IRHubText::t('A single code from your unit is enough: after learning, IRHub automatically checks which protocol it speaks and which code tables match. An existing code (e.g. from ioBroker or Home Assistant) can also be pasted.')],
-            ['type' => 'ValidationTextBox', 'name' => 'AnalyseCode', 'caption' => IRHubText::t('Existing code (hex, Base64, Pronto)'), 'width' => '700px'],
-            ['type' => 'Button', 'caption' => IRHubText::t('🔍 Analyze code'), 'onClick' => 'echo IRKLIMA_CodeAnalysieren($id, $AnalyseCode);'],
+        $aktionen['finden'] = ['type' => 'ExpansionPanel', 'expanded' => !$smartir, 'caption' => '🔍  Find a matching code table', 'items' => [
+            ['type' => 'Label', 'caption' => 'A single code from your unit is enough: after learning, IRHub automatically checks which protocol it speaks and which code tables match. An existing code (e.g. from ioBroker or Home Assistant) can also be pasted.'],
+            ['type' => 'ValidationTextBox', 'name' => 'AnalyseCode', 'caption' => 'Existing code (hex, Base64, Pronto)', 'width' => '700px'],
+            ['type' => 'Button', 'caption' => '🔍 Analyze code', 'onClick' => 'echo IRKLIMA_CodeAnalysieren($id, $AnalyseCode);'],
             ['type' => 'Label', 'name' => 'AnalyseZeile', 'caption' => $this->analyseText(is_array($analyse) ? $analyse : [])],
             ['type' => 'RowLayout', 'name' => 'VorschlagZeile', 'visible' => count($vorschlaege) > 0, 'items' => [
-                ['type' => 'Select', 'name' => 'VorschlagNr', 'caption' => IRHubText::t('Suggestion'), 'options' => $this->vorschlagOptionen($vorschlaege), 'value' => $vorschlaege[0]['nr'] ?? 0, 'width' => '500px'],
-                ['type' => 'Button', 'caption' => IRHubText::t('⬇️ Load this table'), 'onClick' => 'echo IRKLIMA_VorschlagLaden($id, $VorschlagNr);'],
+                ['type' => 'Select', 'name' => 'VorschlagNr', 'caption' => 'Suggestion', 'options' => $this->vorschlagOptionen($vorschlaege), 'value' => $vorschlaege[0]['nr'] ?? 0, 'width' => '500px'],
+                ['type' => 'Button', 'caption' => '⬇️ Load this table', 'onClick' => 'echo IRKLIMA_VorschlagLaden($id, $VorschlagNr);'],
             ]],
         ]];
         $status = [
-            ['code' => 102, 'icon' => 'active', 'caption' => IRHubText::t('Ready')],
-            ['code' => 201, 'icon' => 'inactive', 'caption' => IRHubText::t('Code table not loaded yet')],
+            ['code' => 102, 'icon' => 'active', 'caption' => 'Ready'],
+            ['code' => 201, 'icon' => 'inactive', 'caption' => 'Code table not loaded yet'],
         ];
         return $this->irhubFormular($fach, $aktionen, $status);
     }

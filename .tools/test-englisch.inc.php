@@ -78,9 +78,36 @@ foreach (['IRHubFernbedienung', 'IRHubKlima'] as $enModul) {
         && !preg_match("/'[^'\\n]*\\b(Keine|nicht|Raum|wärmer|kälter|Lautstärke|Programm|Szenen)\\b[^'\\n]*'/u", $enSkript));
 }
 
-// Keine verwaisten Einträge (jeder deutsche Eintrag gehört zu einem Quelltext); Hinweis, kein harter Fehler bei Einzelfällen.
-$enVerwaist = array_values(array_diff(array_keys($enDe), array_keys($enBenutzt)));
-pruef('locale.json: höchstens wenige Einträge ohne festen Quelltext (Konstanten, NEWS)', count($enVerwaist) < 120, count($enVerwaist) . ': ' . implode(' | ', array_slice($enVerwaist, 0, 5)));
+// Keine verwaisten Einträge: jeder deutsche Eintrag gehört zu einem Text im Quellcode (t()-Aufruf, Formular-Beschriftung,
+// Konstante). Seit 0.9.4 (Store-Punkt 25) stehen feste Formulartexte ohne t() im Code — die Konsole übersetzt sie selbst.
+$enLiterale = [];
+$enBeschriftung = [];
+foreach (array_merge(glob($ROOT . '/libs/*.php'), glob($ROOT . '/IRHub*/module.php')) as $enDatei) {
+    $enT = array_values(array_filter(token_get_all((string)file_get_contents($enDatei)), static function ($t) {
+        return !is_array($t) || !in_array($t[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true);
+    }));
+    foreach ($enT as $n => $tok) {
+        if (is_array($tok) && $tok[0] === T_CONSTANT_ENCAPSED_STRING) {
+            $roh = $tok[1];
+            $wert = $roh[0] === "'" ? str_replace(["\\'", '\\\\'], ["'", '\\'], substr($roh, 1, -1)) : stripcslashes(substr($roh, 1, -1));
+            $enLiterale[$wert] = true;
+            // 'caption' => '…' / 'label' / 'confirm': feste Formulartexte
+            if ($n >= 2 && is_array($enT[$n - 1]) && $enT[$n - 1][0] === T_DOUBLE_ARROW && is_array($enT[$n - 2])
+                && in_array($enT[$n - 2][1], ["'caption'", "'label'", "'confirm'"], true)) {
+                $enBeschriftung[$wert] = basename($enDatei);
+            }
+        }
+    }
+}
+$enVerwaist = array_values(array_filter(array_keys($enDe), static function ($k) use ($enLiterale, $enBenutzt) { return !isset($enLiterale[$k]) && !isset($enBenutzt[$k]); }));
+pruef('locale.json: kein Eintrag ohne Quelltext im Code', $enVerwaist === [], count($enVerwaist) . ': ' . implode(' | ', array_slice($enVerwaist, 0, 5)));
+$enOhneDe = array_values(array_filter(array_keys($enBeschriftung), static function ($s) use ($enDe) {
+    return !isset($enDe[$s]) && preg_match('/[a-z]{3,}/', $s) && !preg_match('/^(IRHub|Broadlink|SmartIR|Base64|Hex|Pronto|CSV|JSON|MHz|MAC|OK)\b.{0,12}$/u', $s);
+}));
+pruef('Store-Punkt 25: jeder feste Formulartext steht in locale.json (die Konsole übersetzt ihn)', $enOhneDe === [], implode(' | ', array_slice($enOhneDe, 0, 8)) . ' (' . count($enOhneDe) . ')');
+$enRoh = (string)$GLOBALS['INST'][neu('IRHubFernbedienung')]->GetConfigurationForm();
+pruef('Store-Punkt 25: Formular kommt mit englischen Beschriftungen (keine eigene Übersetzung)', $GLOBALS['SPRACHE'] === 'de'
+    && strpos($enRoh, 'Learn or paste a command') !== false && strpos($enRoh, 'Befehl lernen') === false && strpos(konsole($enRoh), 'Befehl lernen') !== false);
 
 // Formulare auf Englisch: keine deutschen Reste in Captions, Labels, Spalten, Optionen.
 $enTexte = function ($x) use (&$enTexte): array {
@@ -105,7 +132,7 @@ IRHubText::vergessen();
 $enReste = [];
 foreach (['IRHubKonfigurator', 'IRHubBroadlink', 'IRHubFernbedienung', 'IRHubKlima'] as $enModul) {
     $enId = neu($enModul);
-    foreach ($enTexte(json_decode($GLOBALS['INST'][$enId]->GetConfigurationForm(), true)) as $s) {
+    foreach ($enTexte(json_decode(konsole($GLOBALS['INST'][$enId]->GetConfigurationForm()), true)) as $s) {
         if (getenv('IRHUB_FORMULARE')) {   // Stichprobe: IRHUB_FORMULARE=1 php .tools/test-irhub.php
             echo "  [$enModul] $s\n";
         }
@@ -118,7 +145,7 @@ pruef('Formulare auf Englisch ohne deutsche Reste', $enReste === [], implode(' |
 $GLOBALS['SPRACHE'] = 'de';
 IRHubText::vergessen();
 $enDeId = neu('IRHubFernbedienung');
-pruef('Formular auf Deutsch weiter deutsch', strpos((string)$GLOBALS['INST'][$enDeId]->GetConfigurationForm(), 'Befehl lernen') !== false);
+pruef('Formular auf Deutsch weiter deutsch', strpos((string)konsole($GLOBALS['INST'][$enDeId]->GetConfigurationForm()), 'Befehl lernen') !== false);
 $GLOBALS['SPRACHE'] = $enAlt;
 IRHubText::vergessen();
 

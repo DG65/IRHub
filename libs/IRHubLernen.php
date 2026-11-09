@@ -284,21 +284,21 @@ trait IRHubLernen
         // Kein echo-Popup beim Start: es würde den laufenden Countdown verdecken. Rückmeldung
         // geben Statuszeile und Balken darunter (SUITE.md Rückmeldung, Muster 2).
         $p = $this->irhubPrefix();
-        $knoepfe = [['type' => 'Button', 'caption' => IRHubText::t('📥 Learn infrared'), 'onClick' => $p . '_LernenStarten($id, "ir");']];
+        $knoepfe = [['type' => 'Button', 'caption' => '📥 Learn infrared', 'onClick' => $p . '_LernenStarten($id, "ir");']];
         if ($funk) {
-            $knoepfe[] = ['type' => 'Button', 'caption' => IRHubText::t('📻 Learn RF (search frequency)'), 'onClick' => $p . '_LernenStarten($id, "funk");'];
-            $knoepfe[] = ['type' => 'Button', 'caption' => IRHubText::t('📻 RF 433.92 MHz'), 'onClick' => $p . '_LernenStarten($id, "funk433");'];
-            $knoepfe[] = ['type' => 'Button', 'caption' => IRHubText::t('📻 RF 315 MHz'), 'onClick' => $p . '_LernenStarten($id, "funk315");'];
+            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 Learn RF (search frequency)', 'onClick' => $p . '_LernenStarten($id, "funk");'];
+            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 RF 433.92 MHz', 'onClick' => $p . '_LernenStarten($id, "funk433");'];
+            $knoepfe[] = ['type' => 'Button', 'caption' => '📻 RF 315 MHz', 'onClick' => $p . '_LernenStarten($id, "funk315");'];
         }
-        $knoepfe[] = ['type' => 'Button', 'caption' => IRHubText::t('✖ Cancel'), 'onClick' => $p . '_LernenAbbrechen($id);'];
+        $knoepfe[] = ['type' => 'Button', 'caption' => '✖ Cancel', 'onClick' => $p . '_LernenAbbrechen($id);'];
         return [
             ['type' => 'RowLayout', 'items' => $knoepfe],
             ['type' => 'ProgressBar', 'name' => 'LernFortschritt', 'minimum' => 0, 'maximum' => self::$IRHUB_LERN_ZEIT, 'current' => self::$IRHUB_LERN_ZEIT, 'caption' => '', 'visible' => false, 'width' => '600px'],
             ['type' => 'Label', 'name' => 'LernStatus', 'caption' => $laeuft ? IRHubText::t('⏳ Learning in progress …') : ($gelernt !== '' ? IRHubText::t('✅ Learned code ready: %s', IRHubCode::beschreibung(IRHubCode::ausBase64($gelernt))) : IRHubText::t('ℹ️ Ready. First choose below what to learn for, then press the learn button.'))],
             ['type' => 'RowLayout', 'name' => 'GelerntZeile', 'visible' => $gelernt !== '', 'items' => array_values(array_filter([
-                ['type' => 'Button', 'caption' => IRHubText::t('▶️ Test'), 'onClick' => 'echo ' . $this->irhubPrefix() . '_GelerntTesten($id);'],
-                $speichernKnopf === '' ? null : ['type' => 'Button', 'caption' => IRHubText::t('💾 Save'), 'onClick' => $speichernKnopf],
-                ['type' => 'Button', 'caption' => IRHubText::t('🗑 Discard'), 'onClick' => 'echo ' . $this->irhubPrefix() . '_GelerntVerwerfen($id);'],
+                ['type' => 'Button', 'caption' => '▶️ Test', 'onClick' => 'echo ' . $this->irhubPrefix() . '_GelerntTesten($id);'],
+                $speichernKnopf === '' ? null : ['type' => 'Button', 'caption' => '💾 Save', 'onClick' => $speichernKnopf],
+                ['type' => 'Button', 'caption' => '🗑 Discard', 'onClick' => 'echo ' . $this->irhubPrefix() . '_GelerntVerwerfen($id);'],
             ]))],
         ];
     }

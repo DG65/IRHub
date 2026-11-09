@@ -159,16 +159,16 @@ class IRHubKonfigurator extends IPSModule
     protected function irhubZweck(): array
     {
         return [
-            IRHubText::t('The configurator searches your network for Broadlink devices (RM mini, RM pro, RM4 …) and creates them as IRHub Broadlink instances with one click.'),
-            IRHubText::t('On these instances you then create remote controls (learn and send codes) and air conditioners (mode, temperature, fan).'),
+            'The configurator searches your network for Broadlink devices (RM mini, RM pro, RM4 …) and creates them as IRHub Broadlink instances with one click.',
+            'On these instances you then create remote controls (learn and send codes) and air conditioners (mode, temperature, fan).',
         ];
     }
 
     protected function irhubDoku(): array
     {
         return [
-            IRHubText::t('The search sends a Broadlink discovery message to 255.255.255.255 (UDP port 80). Routers do not forward broadcasts into other networks — you find devices in another VLAN or behind Docker by entering their IP address or the broadcast address of their network (e.g. 192.168.20.255).'),
-            IRHubText::t('Locked devices ("Lock device" in the Broadlink app) are found but refuse the login. Unlock them in the app, then it works.'),
+            'The search sends a Broadlink discovery message to 255.255.255.255 (UDP port 80). Routers do not forward broadcasts into other networks — you find devices in another VLAN or behind Docker by entering their IP address or the broadcast address of their network (e.g. 192.168.20.255).',
+            'Locked devices ("Lock device" in the Broadlink app) are found but refuse the login. Unlock them in the app, then it works.',
         ];
     }
 
@@ -176,18 +176,18 @@ class IRHubKonfigurator extends IPSModule
     {
         $funde = $this->funde();
         $fach = [
-            'suche' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('🔎  Search devices'), 'items' => [
+            'suche' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🔎  Search devices', 'items' => [
                 ['type' => 'Label', 'name' => 'SuchZeile', 'caption' => $this->suchZeile($funde)],
-                ['type' => 'Button', 'caption' => IRHubText::t('🔎 Search now'), 'onClick' => 'echo IRCFG_Suchen($id);'],
-                ['type' => 'ValidationTextBox', 'name' => 'Suchadressen', 'caption' => IRHubText::t('Additional search addresses (IP or network broadcast, comma-separated)'), 'width' => '600px'],
-                ['type' => 'Configurator', 'name' => 'Geraete', 'caption' => IRHubText::t('Broadlink devices found'), 'rowCount' => 8, 'add' => false, 'delete' => false,
+                ['type' => 'Button', 'caption' => '🔎 Search now', 'onClick' => 'echo IRCFG_Suchen($id);'],
+                ['type' => 'ValidationTextBox', 'name' => 'Suchadressen', 'caption' => 'Additional search addresses (IP or network broadcast, comma-separated)', 'width' => '600px'],
+                ['type' => 'Configurator', 'name' => 'Geraete', 'caption' => 'Broadlink devices found', 'rowCount' => 8, 'add' => false, 'delete' => false,
                     'sort' => ['column' => 'name', 'direction' => 'ascending'],
                     'columns' => [
                         ['caption' => 'Name', 'name' => 'name', 'width' => '200px'],
-                        ['caption' => IRHubText::t('Model'), 'name' => 'modell', 'width' => '200px'],
-                        ['caption' => IRHubText::t('IP address'), 'name' => 'ip', 'width' => '140px'],
+                        ['caption' => 'Model', 'name' => 'modell', 'width' => '200px'],
+                        ['caption' => 'IP address', 'name' => 'ip', 'width' => '140px'],
                         ['caption' => 'MAC', 'name' => 'mac', 'width' => '160px'],
-                        ['caption' => IRHubText::t('Note'), 'name' => 'hinweis', 'width' => 'auto'],
+                        ['caption' => 'Note', 'name' => 'hinweis', 'width' => 'auto'],
                     ],
                     'values' => $this->listenWerte($funde),
                 ],

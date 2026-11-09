@@ -87,7 +87,7 @@ class IPSModule
     protected function GetStatus() { return $this->status; }
     protected function SendDebug($a, $b, $c) {}
     protected function LogMessage($text, $art) { $GLOBALS['LOG'][] = [$this->InstanceID, $text, $art]; }
-    protected function UpdateFormField($feld, $eig, $wert) { $GLOBALS['FORM'][$this->InstanceID][$feld][$eig] = $wert; }
+    protected function UpdateFormField($feld, $eig, $wert) { $GLOBALS['FORM'][$this->InstanceID][$feld][$eig] = in_array($eig, ['caption', 'label', 'confirm'], true) && is_string($wert) ? irhubUebersetze($wert) : ($eig === 'options' && is_string($wert) ? (string)json_encode(konsoleTexte(json_decode($wert, true)), JSON_UNESCAPED_UNICODE) : $wert); }
     public $nachrichten = [];
     protected function RegisterMessage($sender, $msg) { $this->nachrichten[$sender . '/' . $msg] = true; }
     protected function UnregisterMessage($sender, $msg) { unset($this->nachrichten[$sender . '/' . $msg]); }
@@ -199,6 +199,27 @@ function irhubUebersetze(string $t): string
 }
 require_once $ROOT . '/libs/IRHubText.php';
 IRHubText::setzen('irhubUebersetze');
+// Die Konsole übersetzt Formulartexte selbst (caption/label/confirm, auch per UpdateFormField; Store-Punkt 25).
+// Der Prüfstand bildet das nach: Formulare werden über konsole() gelesen wie in der echten Konsole.
+function konsoleTexte($knoten)
+{
+    if (!is_array($knoten)) {
+        return $knoten;
+    }
+    foreach ($knoten as $k => $v) {
+        if (is_string($k) && in_array($k, ['caption', 'label', 'confirm'], true) && is_string($v)) {
+            $knoten[$k] = irhubUebersetze($v);
+        } elseif (is_array($v)) {
+            $knoten[$k] = konsoleTexte($v);
+        }
+    }
+    return $knoten;
+}
+function konsole(string $form): string
+{
+    $f = json_decode($form, true);
+    return is_array($f) ? (string)json_encode(konsoleTexte($f), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : $form;
+}
 require_once $ROOT . '/libs/IRHubTasten.php';
 require_once $ROOT . '/IRHubBroadlink/module.php';
 require_once $ROOT . '/IRHubFernbedienung/module.php';
@@ -546,7 +567,7 @@ $cfg = neu('IRHubKonfigurator');
 $GLOBALS['INST'][$cfg]->ApplyChanges();
 $text = $GLOBALS['INST'][$cfg]->Suchen();
 pruef('Konfigurator findet RM pro+', strpos($text, '1 Gerät gefunden') !== false, $text);
-$form = json_decode($GLOBALS['INST'][$cfg]->GetConfigurationForm(), true);
+$form = json_decode(konsole($GLOBALS['INST'][$cfg]->GetConfigurationForm()), true);
 $zeile = null;
 array_walk_recursive($form, static function () {});
 $liste = null;
@@ -773,7 +794,7 @@ $F->LernenAbbrechen();
 pruef('Senden aus dem Protokoll', strpos($B->MitschnittSenden(json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true)[0]['code']), '✅') === 0);
 pruef('Protokoll leeren', strpos($B->ProtokollLeeren(), '✅') === 0 && $B->ReadAttributeStringOeffentlich('Protokoll') === '[]');
 $B->attrs['MitschnittPauseBis'] = 0;
-$form = json_encode(json_decode($B->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+$form = json_encode(json_decode(konsole($B->GetConfigurationForm()), true), JSON_UNESCAPED_UNICODE);
 pruef('Formular: Mitschnitt-Panel mit Liste und Übernahme', strpos($form, '"name":"ProtokollListe"') !== false && strpos($form, '"name":"ZielFernbedienung"') !== false && strpos($form, 'Mitschnitt läuft auf 433,92 MHz') !== false);
 // Sender erkennen
 abschnitt('Sender erkennen und Export');
@@ -840,7 +861,7 @@ $alt = json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true);
 foreach ($alt as &$e) { unset($e['sender'], $e['taste'], $e['wechselcode']); }
 unset($e);
 $B->WriteAttributeStringOeffentlich('Protokoll', json_encode($alt));
-$B->GetConfigurationForm();
+konsole($B->GetConfigurationForm());
 pruef('Alt-Einträge beim Öffnen zugeordnet', json_decode($B->ReadAttributeStringOeffentlich('Protokoll'), true)[count($alt) - 1]['sender'] === 1);
 // Export Mitschnitt
 $url = $B->MitschnittExport('csv');
@@ -852,7 +873,7 @@ pruef('CSV: deutsches Datum und Dezimalkomma', preg_match('/^"\d\d\.\d\d\.\d{4} 
 $url = $B->MitschnittExport('json');
 $j = json_decode(base64_decode(substr($url, strpos($url, ',') + 1)), true);
 pruef('JSON: alle Felder, Code wiederverwendbar', count($j) === count($alt) && isset($j[0]['zeitpunkt'], $j[0]['pulse_us'], $j[0]['code']) && IRHubCode::ausBase64($j[count($j) - 1]['code']) === $a1 && $j[count($j) - 1]['bits'] === $adrA . '00000001');
-$form = json_encode(json_decode($B->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$form = json_encode(json_decode(konsole($B->GetConfigurationForm()), true), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 pruef('Formular: Download-Knöpfe, Sender-Spalte, Übersicht', strpos($form, '"download":"IRHub-Funkmitschnitt.csv"') !== false && strpos($form, '"download":"IRHub-Funkmitschnitt.json"') !== false && strpos($form, '"name":"sender"') !== false && strpos($form, '"name":"SenderZeile"') !== false);
 pruef('Leeren setzt auch die Sender-Nummern zurück', strpos($B->ProtokollLeeren(), '✅') === 0 && $B->ReadAttributeStringOeffentlich('FunkSender') === '[]');
 // Export Befehle: wieder einlesbar
@@ -874,7 +895,7 @@ pruef('Befehle: leere Datei → Hinweis', strpos($F->BefehleImportDatei(''), '�
 // Gerät ohne Funk: Mitschnitt schaltet sich ab
 $B->WriteAttributeStringOeffentlich('Geraet', json_encode(['typ' => 0x2737, 'mac' => 'a0:43:b0:55:10:f7', 'kennung' => '192.168.1.50|' . 0x27A9]));
 $B->MitschnittSchritt();
-pruef('Ohne Funkempfänger: Timer aus, ehrlicher Hinweis', $B->timers['Mitschnitt'][0] === 0 && strpos(json_encode(json_decode($B->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'hat keinen Funkempfänger') !== false);
+pruef('Ohne Funkempfänger: Timer aus, ehrlicher Hinweis', $B->timers['Mitschnitt'][0] === 0 && strpos(json_encode(json_decode(konsole($B->GetConfigurationForm()), true), JSON_UNESCAPED_UNICODE), 'hat keinen Funkempfänger') !== false);
 $B->WriteAttributeStringOeffentlich('Geraet', json_encode(['typ' => 0x27A9, 'mac' => 'a0:43:b0:55:10:f7', 'kennung' => '192.168.1.50|' . 0x27A9]));
 $B->props['Mitschnitt'] = false;
 $B->ApplyChanges();
@@ -1013,7 +1034,7 @@ $kd = json_decode(end($KL->visu), true);
 pruef('Raumtemperatur automatisch vom Broadlink (RM pro: 23,4 °C)', (float)$kd['raum'] === 23.4 && $kd['raumQuelle'] === 'broadlink', json_encode([$kd['raum'], $kd['raumQuelle']]));
 $tvid = IPS_GetObjectIDByIdent('Temperatur', $bl);
 pruef('Temperatur des Broadlink wird beobachtet', isset($KL->nachrichten[$tvid . '/' . VM_UPDATE]));
-$form = json_encode(json_decode($KL->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$form = json_encode(json_decode(konsole($KL->GetConfigurationForm()), true), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 pruef('Formular: 🔗-Zeile grün, Feld nur als Überschreiben', strpos($form, '🔗 Raumtemperatur: 23,4 °C') !== false && strpos($form, '"color":3050301') !== false && strpos($form, 'Eigene Temperaturvariable stattdessen verwenden') !== false);
 $B->vars['Temperatur']['value'] = 24.0;
 $n = count($KL->visu);
@@ -1024,12 +1045,12 @@ $KL->props['RaumTemperaturID'] = 88888;
 $KL->ApplyChanges();
 $kd = json_decode(end($KL->visu), true);
 pruef('Eigene Variable gewinnt', (float)$kd['raum'] === 20.5 && $kd['raumQuelle'] === 'eigen' && isset($KL->nachrichten['88888/' . VM_UPDATE]) && !isset($KL->nachrichten[$tvid . '/' . VM_UPDATE]));
-pruef('Formular: ✏️-Zeile', strpos(json_encode(json_decode($KL->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE),  '✏️ Raumtemperatur: 20,5 °C') !== false);
+pruef('Formular: ✏️-Zeile', strpos(json_encode(json_decode(konsole($KL->GetConfigurationForm()), true), JSON_UNESCAPED_UNICODE),  '✏️ Raumtemperatur: 20,5 °C') !== false);
 $KL->props['RaumTemperaturID'] = 0;
 unset($B->vars['Temperatur']);
 $KL->ApplyChanges();
 $kd = json_decode(end($KL->visu), true);
-$form = json_encode(json_decode($KL->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$form = json_encode(json_decode(konsole($KL->GetConfigurationForm()), true), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 pruef('Ohne Sensor: keine Raumtemperatur, ℹ️ und Feld sichtbar', $kd['raum'] === null && strpos($form, 'ℹ️ Der Broadlink hat keinen Temperatursensor') !== false && strpos($form, '"type":"SelectVariable","name":"RaumTemperaturID"') !== false && strpos($form, 'Eigene Temperaturvariable stattdessen') === false);
 $vorher = count($sim->gesendet);
 $KL->RequestAction('KachelZustand', json_encode(['ein' => true, 'modus' => 'cool', 'luefter' => 'low', 'temp' => 18]));
@@ -1050,7 +1071,7 @@ pruef('Kachel: Betriebsarten mit Symbol', $kd['modi'][0]['symbol'] === '❄️' 
 abschnitt('Formulare und Store-Regeln');
 foreach ([$cfg, $bl, $fb, $kl] as $id) {
     $m = $GLOBALS['INST'][$id];
-    $json = $m->GetConfigurationForm();
+    $json = konsole($m->GetConfigurationForm());
     $f = json_decode($json, true);
     $klasse = get_class($m);
     pruef("$klasse: Formular ist gültiges JSON", is_array($f), json_last_error_msg());
@@ -1059,7 +1080,7 @@ foreach ([$cfg, $bl, $fb, $kl] as $id) {
     }, $f['elements']);
     pruef("$klasse: Reihenfolge Zweck → Neu → Doku", strpos($titel[0], 'Wozu') !== false && strpos($titel[1], 'Neu bis') !== false && strpos($titel[2], 'Dokumentation') !== false);
     pruef("$klasse: Lizenz-Panel zuletzt", strpos(end($titel), 'Über dieses Modul') !== false);
-    pruef("$klasse: Forum-Thread verlinkt", strpos($json, 'community.symcon.de\/t\/beta-modul-irhub') !== false);
+    pruef("$klasse: Forum-Thread verlinkt", strpos(str_replace('\\/', '/', $json), 'community.symcon.de/t/beta-modul-irhub') !== false);
     // Jede eigene Statusnummer hat einen Formulareintrag.
     $codes = array_column($f['status'], 'code');
     pruef("$klasse: Status " . $m->status . ' im Formular', in_array($m->status, $codes, true) || $m->status === 102 && $klasse === 'IRHubKonfigurator');
@@ -1093,7 +1114,7 @@ foreach ([$fb, $kl] as $id) {
         $m->props['Quelle'] = 'gelernt';
         $m->ApplyChanges();
     }
-    $json = $m->GetConfigurationForm();
+    $json = konsole($m->GetConfigurationForm());
     $klasse = get_class($m);
     pruef("$klasse: Lernstart ohne Popup", strpos($json, 'echo ' . ($id === $fb ? 'IRHUB' : 'IRKLIMA') . '_LernenStarten') === false && strpos($json, '_LernenStarten') !== false);
     pruef("$klasse: Countdown-Balken im Formular", strpos($json, '"type":"ProgressBar","name":"LernFortschritt"') !== false);
@@ -1105,18 +1126,18 @@ abschnitt('Formular: Aufbau');
 $titelVon = static function (array $liste): array {
     return array_map(static function ($e) { return (string)($e['caption'] ?? ''); }, $liste);
 };
-$fKonf = json_decode($GLOBALS['INST'][$cfg]->GetConfigurationForm(), true);
+$fKonf = json_decode(konsole($GLOBALS['INST'][$cfg]->GetConfigurationForm()), true);
 pruef('Konfigurator (1 Fachpanel) ohne Aufbau-Panel', !in_array(true, array_map(static function ($t) { return strpos($t, 'Formular: Aufbau') !== false; }, $titelVon($fKonf['elements'])), true));
 foreach ([$bl, $fb, $kl] as $id) {
     $m = $GLOBALS['INST'][$id];
-    $f = json_decode($m->GetConfigurationForm(), true);
+    $f = json_decode(konsole($m->GetConfigurationForm()), true);
     $t = $titelVon($f['elements']);
     $i = array_search('🪟  Formular: Aufbau', $t, true);
     pruef(get_class($m) . ': Aufbau-Panel direkt vor Rückmeldungen/Über, eingeklappt', $i !== false && strpos($t[count($t) - 1], 'Über dieses Modul') !== false && $f['elements'][$i]['expanded'] === false && $i >= count($t) - 3);
 }
 // Fernbedienung: Standardliste enthält auch die Aktions-Panels, gekennzeichnet
 $F->props['FormLayout'] = '[]';
-$f = json_decode($F->GetConfigurationForm(), true);
+$f = json_decode(konsole($F->GetConfigurationForm()), true);
 $std = json_decode($F->ReadAttributeStringOeffentlich('FormLayoutStandard'), true);
 pruef('Standardliste: 5 Bereiche, Aktionen gekennzeichnet', count($std) === 5 && array_column($std, 'Key') === ['kachel', 'geraet', 'lernen', 'befehle', 'szenen'] && strpos($std[2]['Panel'], '(unten bei den Aktionen)') !== false && strpos($std[0]['Panel'], '(unten') === false);
 $ohne = $titelVon($f['actions']);
@@ -1128,7 +1149,7 @@ $F->props['FormLayout'] = json_encode([
     ['Key' => 'szenen', 'Pos' => 1],                                      // nach vorn, aber nur innerhalb der Aktionen
     ['Key' => 'gibtsnicht', 'Hidden' => true, 'Pos' => 1],                // unbekannt: ignoriert
 ]);
-$f = json_decode($F->GetConfigurationForm(), true);
+$f = json_decode(konsole($F->GetConfigurationForm()), true);
 $el = [];
 foreach ($f['elements'] as $e) { $el[(string)($e['caption'] ?? '')] = $e; }
 $ak = [];
@@ -1153,7 +1174,7 @@ $F->props['FormLayout'] = '[]';
 // Klima: Bereiche je nach Codequelle — unbekannte/fehlende Schlüssel fallen auf Standard
 $KL->props['FormLayout'] = json_encode([['Key' => 'laden', 'Hidden' => true]]);
 $KL->props['Quelle'] = 'gelernt';
-$f = json_decode($KL->GetConfigurationForm(), true);
+$f = json_decode(konsole($KL->GetConfigurationForm()), true);
 pruef('Klima: Schlüssel eines gerade nicht gezeigten Panels stört nicht', count($f['actions']) === 2 && !in_array(false, array_map(static function ($e) { return $e['visible'] ?? true; }, $f['actions']), true));
 $KL->props['FormLayout'] = '[]';
 

@@ -23,6 +23,9 @@
 - Übersetzer der Module = `IRHubText::mitMerkliste()` (0.9.3): jeder Text höchstens einmal je Prozess über
   `Translate()` (liest locale.json bei jedem Aufruf, SUITE.md Stolperstein 24). Nie die locale.json selbst lesen
   (0.9.2 tat das; Store erlaubt Dateizugriff nur als Ausnahme). Prüfstand: bei Sprachwechsel `IRHubText::vergessen()`.
+- **Formulare nicht selbst übersetzen (0.9.4, Store-Punkt 25):** feste `caption`/`label`/`confirm`/Optionen als englisches
+  Literal ohne `t()`, die Konsole übersetzt sie (auch per UpdateFormField). `t()` nur für Texte mit Werten, Meldungen,
+  Variablennamen, Listenwerte (übersetzt die Konsole nicht) und Kacheln. Prüfstand liest Formulare über `konsole()`.
 - Sprachabhängig auch `IRHubText::dezimal()/zeit()` (Komma/Datum) und die Export-Dateinamen.
 - Gespeicherte Anzeigetexte erst beim Anzeigen übersetzen (LetzterFehler mit `ALTE_FEHLERTEXTE`, Klima-Analyse
   `meldung`); alte deutsche Analyse-Texte bleiben bis zur nächsten Analyse deutsch.

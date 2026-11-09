@@ -735,18 +735,18 @@ class IRHubBroadlink extends IPSModule
     protected function irhubZweck(): array
     {
         return [
-            IRHubText::t('This instance represents a Broadlink device (RM mini, RM pro, RM4 …) in your network. It logs in to the device locally — without a cloud — and sends the infrared and RF commands of your remote control and air conditioner instances.'),
-            IRHubText::t('If the device has a temperature sensor (RM pro, RM4 with cable sensor), temperature and humidity appear here as variables.'),
+            'This instance represents a Broadlink device (RM mini, RM pro, RM4 …) in your network. It logs in to the device locally — without a cloud — and sends the infrared and RF commands of your remote control and air conditioner instances.',
+            'If the device has a temperature sensor (RM pro, RM4 with cable sensor), temperature and humidity appear here as variables.',
         ];
     }
 
     protected function irhubDoku(): array
     {
         return [
-            IRHubText::t('Setup: connect the device to Wi-Fi with the Broadlink app, then set up nothing else in the app. If the device is locked in the app ("Lock device"), it refuses the local login — unlock it there.'),
-            IRHubText::t('Preferably assign a fixed IP address in the router. Communication runs via UDP port 80 directly to the device, also across subnet and Docker boundaries, as long as the device is reachable.'),
-            IRHubText::t('Remote controls and air conditioners are separate instances below this device — as many as you like per Broadlink.'),
-            IRHubText::t('RF capture (RM pro/pro+, RM4 pro): logs received RF signals with their time; the variable "Detected RF signal" is suitable as a trigger for events (e.g. wireless doorbell → push notification).'),
+            'Setup: connect the device to Wi-Fi with the Broadlink app, then set up nothing else in the app. If the device is locked in the app ("Lock device"), it refuses the local login — unlock it there.',
+            'Preferably assign a fixed IP address in the router. Communication runs via UDP port 80 directly to the device, also across subnet and Docker boundaries, as long as the device is reachable.',
+            'Remote controls and air conditioners are separate instances below this device — as many as you like per Broadlink.',
+            'RF capture (RM pro/pro+, RM4 pro): logs received RF signals with their time; the variable "Detected RF signal" is suitable as a trigger for events (e.g. wireless doorbell → push notification).',
         ];
     }
 
@@ -761,68 +761,68 @@ class IRHubBroadlink extends IPSModule
             }
         }
         $fach = [
-            'geraet' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('📡  Device'), 'items' => [
-                ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => IRHubText::t('IP address of the Broadlink device')],
+            'geraet' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '📡  Device', 'items' => [
+                ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP address of the Broadlink device'],
                 ['type' => 'Label', 'name' => 'StatusZeile', 'caption' => $this->statusZeile()],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => IRHubText::t('🔌 Check connection'), 'onClick' => 'echo IRBL_VerbindungPruefen($id);'],
-                    ['type' => 'Button', 'name' => 'EntsperrenKnopf', 'caption' => IRHubText::t('🔓 Unlock locally'), 'visible' => $gesperrt, 'onClick' => 'echo IRBL_LokalEntsperren($id);'],
+                    ['type' => 'Button', 'caption' => '🔌 Check connection', 'onClick' => 'echo IRBL_VerbindungPruefen($id);'],
+                    ['type' => 'Button', 'name' => 'EntsperrenKnopf', 'caption' => '🔓 Unlock locally', 'visible' => $gesperrt, 'onClick' => 'echo IRBL_LokalEntsperren($id);'],
                 ]],
-                ['type' => 'NumberSpinner', 'name' => 'Intervall', 'caption' => IRHubText::t('Query every'), 'suffix' => 's', 'minimum' => 30, 'maximum' => 3600],
+                ['type' => 'NumberSpinner', 'name' => 'Intervall', 'caption' => 'Query every', 'suffix' => 's', 'minimum' => 30, 'maximum' => 3600],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'CheckBox', 'name' => 'Mitschnitt', 'caption' => IRHubText::t('📻 RF capture (log received RF signals)')],
-                    ['type' => 'NumberSpinner', 'name' => 'MitschnittMHz', 'caption' => IRHubText::t('on frequency'), 'suffix' => 'MHz', 'digits' => 2, 'minimum' => 300, 'maximum' => 450],
+                    ['type' => 'CheckBox', 'name' => 'Mitschnitt', 'caption' => '📻 RF capture (log received RF signals)'],
+                    ['type' => 'NumberSpinner', 'name' => 'MitschnittMHz', 'caption' => 'on frequency', 'suffix' => 'MHz', 'digits' => 2, 'minimum' => 300, 'maximum' => 450],
                 ]],
             ]],
-            'kinder' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => IRHubText::t('🎛️  Remote controls and air conditioners'), 'items' => [
+            'kinder' => ['type' => 'ExpansionPanel', 'expanded' => true, 'caption' => '🎛️  Remote controls and air conditioners', 'items' => [
                 ['type' => 'Label', 'caption' => count($kinder) === 0 ? IRHubText::t('ℹ️ No instance on this device yet.') : IRHubText::t('🔗 Connected: %s', implode(', ', $kinder))],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => IRHubText::t('➕ Create remote control'), 'onClick' => 'echo IRBL_KindAnlegen($id, "fernbedienung");'],
-                    ['type' => 'Button', 'caption' => IRHubText::t('➕ Create air conditioner'), 'onClick' => 'echo IRBL_KindAnlegen($id, "klima");'],
+                    ['type' => 'Button', 'caption' => '➕ Create remote control', 'onClick' => 'echo IRBL_KindAnlegen($id, "fernbedienung");'],
+                    ['type' => 'Button', 'caption' => '➕ Create air conditioner', 'onClick' => 'echo IRBL_KindAnlegen($id, "klima");'],
                 ]],
             ]],
         ];
         $status = [
-            ['code' => 102, 'icon' => 'active', 'caption' => IRHubText::t('Connected')],
-            ['code' => 104, 'icon' => 'inactive', 'caption' => IRHubText::t('Please enter the IP address')],
-            ['code' => self::STATUS_GESPERRT, 'icon' => 'error', 'caption' => IRHubText::t('Device is locked in the Broadlink app — turn off "Lock device" there')],
-            ['code' => self::STATUS_UNERREICHBAR, 'icon' => 'error', 'caption' => IRHubText::t('Device does not respond')],
-            ['code' => self::STATUS_UNBEKANNT, 'icon' => 'inactive', 'caption' => IRHubText::t('Unknown device identifier — please report it')],
+            ['code' => 102, 'icon' => 'active', 'caption' => 'Connected'],
+            ['code' => 104, 'icon' => 'inactive', 'caption' => 'Please enter the IP address'],
+            ['code' => self::STATUS_GESPERRT, 'icon' => 'error', 'caption' => 'Device is locked in the Broadlink app — turn off "Lock device" there'],
+            ['code' => self::STATUS_UNERREICHBAR, 'icon' => 'error', 'caption' => 'Device does not respond'],
+            ['code' => self::STATUS_UNBEKANNT, 'icon' => 'inactive', 'caption' => 'Unknown device identifier — please report it'],
         ];
         $this->senderNachziehen();
-        $ziele = [['caption' => IRHubText::t('— Choose remote control —'), 'value' => 0]];
+        $ziele = [['caption' => '— Choose remote control —', 'value' => 0]];
         foreach ($this->fernbedienungen() as $fid => $fname) {
             $ziele[] = ['caption' => $fname . ' (#' . $fid . ')', 'value' => $fid];
         }
         $aktionen = [
-            'mitschnitt' => ['type' => 'ExpansionPanel', 'expanded' => $this->ReadPropertyBoolean('Mitschnitt'), 'caption' => IRHubText::t('📻  RF capture'), 'items' => [
-                ['type' => 'Label', 'caption' => IRHubText::t('Recording keeps the Broadlink ready to receive at all times and writes every RF signal with date and time to the log — e.g. hand transmitters, wireless doorbells or remote controls whose button you do not want to learn separately. An entry can be transferred directly as a command into a remote control. Signals that have already been learned are recognised.')],
-                ['type' => 'Label', 'caption' => IRHubText::t('Note: while recording is running, the Broadlink is in learning mode (the LED may stay on permanently). When a remote control learns or sends, it pauses briefly. Rolling-code transmitters (e.g. Somfy RTS, modern garage doors) can be logged but not meaningfully resent.')],
+            'mitschnitt' => ['type' => 'ExpansionPanel', 'expanded' => $this->ReadPropertyBoolean('Mitschnitt'), 'caption' => '📻  RF capture', 'items' => [
+                ['type' => 'Label', 'caption' => 'Recording keeps the Broadlink ready to receive at all times and writes every RF signal with date and time to the log — e.g. hand transmitters, wireless doorbells or remote controls whose button you do not want to learn separately. An entry can be transferred directly as a command into a remote control. Signals that have already been learned are recognised.'],
+                ['type' => 'Label', 'caption' => 'Note: while recording is running, the Broadlink is in learning mode (the LED may stay on permanently). When a remote control learns or sends, it pauses briefly. Rolling-code transmitters (e.g. Somfy RTS, modern garage doors) can be logged but not meaningfully resent.'],
                 ['type' => 'Label', 'name' => 'MitschnittZeile', 'caption' => $this->mitschnittZeile()],
                 ['type' => 'Label', 'name' => 'SenderZeile', 'caption' => $this->senderZeile()],
                 ['type' => 'List', 'name' => 'ProtokollListe', 'rowCount' => 10, 'add' => false, 'delete' => false,
                     'columns' => [
-                        ['caption' => IRHubText::t('Time'), 'name' => 'zeit', 'width' => '160px', 'add' => ''],
+                        ['caption' => 'Time', 'name' => 'zeit', 'width' => '160px', 'add' => ''],
                         ['caption' => 'MHz', 'name' => 'mhz', 'width' => '70px', 'add' => ''],
                         ['caption' => 'Signal', 'name' => 'signal', 'width' => '230px', 'add' => ''],
-                        ['caption' => IRHubText::t('Pulse sequence (µs)'), 'name' => 'folge', 'width' => 'auto', 'add' => ''],
-                        ['caption' => IRHubText::t('Rep.'), 'name' => 'wdh', 'width' => '55px', 'add' => ''],
-                        ['caption' => IRHubText::t('Transmitter'), 'name' => 'sender', 'width' => '190px', 'add' => ''],
-                        ['caption' => IRHubText::t('Detected'), 'name' => 'erkannt', 'width' => '200px', 'add' => ''],
+                        ['caption' => 'Pulse sequence (µs)', 'name' => 'folge', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Rep.', 'name' => 'wdh', 'width' => '55px', 'add' => ''],
+                        ['caption' => 'Transmitter', 'name' => 'sender', 'width' => '190px', 'add' => ''],
+                        ['caption' => 'Detected', 'name' => 'erkannt', 'width' => '200px', 'add' => ''],
                         ['caption' => 'Code', 'name' => 'code', 'width' => '0px', 'visible' => false, 'add' => ''],
                     ],
                     'values' => $this->protokollWerte(),
                 ],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Select', 'name' => 'ZielFernbedienung', 'caption' => IRHubText::t('Transfer to'), 'options' => $ziele, 'value' => count($ziele) === 2 ? $ziele[1]['value'] : 0],
-                    ['type' => 'ValidationTextBox', 'name' => 'UebernahmeName', 'caption' => IRHubText::t('as command (name)')],
-                    ['type' => 'Button', 'caption' => IRHubText::t('📥 Transfer to remote control'), 'onClick' => 'echo IRBL_MitschnittUebernehmen($id, $ZielFernbedienung, $UebernahmeName, $ProtokollListe["code"]);'],
+                    ['type' => 'Select', 'name' => 'ZielFernbedienung', 'caption' => 'Transfer to', 'options' => $ziele, 'value' => count($ziele) === 2 ? $ziele[1]['value'] : 0],
+                    ['type' => 'ValidationTextBox', 'name' => 'UebernahmeName', 'caption' => 'as command (name)'],
+                    ['type' => 'Button', 'caption' => '📥 Transfer to remote control', 'onClick' => 'echo IRBL_MitschnittUebernehmen($id, $ZielFernbedienung, $UebernahmeName, $ProtokollListe["code"]);'],
                 ]],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => IRHubText::t('▶️ Send selected signal'), 'onClick' => 'echo IRBL_MitschnittSenden($id, $ProtokollListe["code"]);'],
-                    ['type' => 'Button', 'caption' => IRHubText::t('📄 Export as CSV'), 'download' => IRHubText::t('IRHub-rf-capture.csv'), 'onClick' => 'echo IRBL_MitschnittExport($id, "csv");'],
-                    ['type' => 'Button', 'caption' => IRHubText::t('{ } Export as JSON'), 'download' => IRHubText::t('IRHub-rf-capture.json'), 'onClick' => 'echo IRBL_MitschnittExport($id, "json");'],
-                    ['type' => 'Button', 'caption' => IRHubText::t('🗑 Clear log'), 'confirm' => IRHubText::t('Really clear the log?'), 'onClick' => 'echo IRBL_ProtokollLeeren($id);'],
+                    ['type' => 'Button', 'caption' => '▶️ Send selected signal', 'onClick' => 'echo IRBL_MitschnittSenden($id, $ProtokollListe["code"]);'],
+                    ['type' => 'Button', 'caption' => '📄 Export as CSV', 'download' => IRHubText::t('IRHub-rf-capture.csv'), 'onClick' => 'echo IRBL_MitschnittExport($id, "csv");'],
+                    ['type' => 'Button', 'caption' => '{ } Export as JSON', 'download' => IRHubText::t('IRHub-rf-capture.json'), 'onClick' => 'echo IRBL_MitschnittExport($id, "json");'],
+                    ['type' => 'Button', 'caption' => '🗑 Clear log', 'confirm' => 'Really clear the log?', 'onClick' => 'echo IRBL_ProtokollLeeren($id);'],
                 ]],
             ]],
         ];
